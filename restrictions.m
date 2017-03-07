@@ -9,12 +9,17 @@ classdef restrictions
 
 
     properties
-        restMat;  % Matrix with columns: Var Hor S/Z Cum Shk
+        restMatTMP;  % Matrix with columns: Var Hor S/Z Cum Shk
     end
     
     methods
         function obj = restrictions(label) 
-            obj.restMat = load([label filesep 'restrictions.dat']);
+           % read the restricitons matrix from a file  'restMat.dat'
+            obj.restMatTMP = load([label filesep 'restMat.dat']);
+        end
+        function matrix = restMat(obj) 
+            % read the restricitons matrix
+            matrix = obj.restMatTMP;
         end
     end
     
