@@ -9,9 +9,13 @@ classdef restrictions
 
 
     properties
+        restMat;  % Matrix with columns: Var Hor S/Z Cum Shk
     end
     
     methods
+        function obj = restrictions(label) 
+            obj.restMat = load([label filesep 'restrictions.dat']);
+        end
     end
     
 end

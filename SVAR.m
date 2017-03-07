@@ -14,7 +14,7 @@ classdef SVAR
     end
 %%    
     properties (Access = protected)
-      n = 1 ; % Number of time series   
+      n = 1 ; % Number of time series     
     end
     
     
@@ -28,7 +28,7 @@ classdef SVAR
         obj.nLags = nLags ; 
       end
       function n = nTS(obj)
-           % Funciton nTS returns the number of time series
+         % Funciton nTS returns the number of time series
           n = obj.n;
       end 
       
