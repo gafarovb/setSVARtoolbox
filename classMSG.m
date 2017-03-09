@@ -1,4 +1,4 @@
-classdef classMSG < SVAR
+classdef classMSG < SVAR  
     %CLASSMSG Summary of this class goes here
     %   Detailed explanation goes here
     

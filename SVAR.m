@@ -4,13 +4,20 @@ classdef SVAR < VecAR
 %       to construct point estimates and conduct inteference on the impulse 
 %       response functions (IRF).
 %
-%       This version: 3.7.2017
+%       This version: 3.9.2017
 %       Last edited by Bulat Gafarov 
 %%    
     properties (Access = public) 
       label = 'Unknown' ; %% Model label, e.g. MSG 
       ID   =[] ; %% A class with restrictions
     end
+    
+    
+%% *****************************************************************  
+%  *****************************************************************  
+%  *****************************************************************  
+%  *****************************************************************      
+%% *****************************************************************  
 
     methods
       function obj = SVAR(label,nLags)
@@ -21,10 +28,14 @@ classdef SVAR < VecAR
       
          obj@VecAR(label,nLags); % create a reduced form VAR model
          obj.label = label ;
-         obj.ID = restrictions(label); % read restrictions from a file
-
+         obj.ID = restrictions(label); % read restrictions from a file 
+      end
+      
+      function tempSuperClass(obj)
           
       end
+      
+      
       function n = nTS(obj)
          % Funciton nTS returns the number of time series
           n = obj.n;
