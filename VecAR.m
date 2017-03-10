@@ -5,7 +5,7 @@ classdef VecAR
     properties (Access = public) 
       names = []; %% Labels for TS         
     end
-    properties (Constant)      % todo: make it a cofiguration file
+    properties (Access=private,Constant)      % todo: make it a cofiguration file
         MaxHorizons = 23;      % the number of horizons to compute the IRF 
         hetscedOmega = 0;      % 0=homoscedastic Omega, 1=heteroscedastic Omega
         babn1 = 1000;          % bab: number of bootstrap samples before bias correction
@@ -34,31 +34,21 @@ classdef VecAR
        Sigma;       % Sigma is the estimated covariance matrix
        theta;       % Vector of reduced-form parameters
        etahat;      % estimated residuals/forecast errors 
-       
  %% Variance 
        Omega;      % asymptotic covariance matrix for reduced form coefficients
        Omegainv;   % Block inverse of Omega (assumes homoskedasticity)
-
  %% Estimates of IRF
        C;           % C is the estimated reduced form VMA representation, a long matrix (n  x n(MaxHorizons+1) )
-       Ccum;        % C is the estimated reduced form VMA representation, a long matrix (n  x n(MaxHorizons+1) )
- 
-       
+       Ccum;        % Ccum is the estimated cumulative VMA representation, a long matrix (n  x n(MaxHorizons+1) )    
  %% todo : check if these properties are necessary
  %% Auxilary properties 
        G;          % Derivatives of C wrt AL.
        Gcum;       %  Derivatives of Ccum wrt AL.
        Vaux;       % auxiliary matrix Vaux such that vec(Sigma)=Vaux vech(Sigma);
        Vaux2;      % auxiliary matrix Vaux2 such that vech(Sigma)=Vaux2 vec(Sigma);
-
-       bootCSigma; % Bootstrap after boostrap samples of of C wrt AL.
-
-         
+       bootCSigma; % Bootstrap after boostrap samples of of C wrt AL.    
     end
-    
-    
-    
-    
+%% ********************* Methods ***************************************  
     methods
         function obj = VecAR(label,nLags)
          % This constructor opens a folder ./label/ and reads data
@@ -82,13 +72,11 @@ classdef VecAR
             %% Asymptotic covariance matrix for reduced form coefficients
             [obj.Omega,obj.Omegainv] = CovAhat_Sigmahat(obj.nLags,obj.X,obj.etahat,obj.Vaux,obj.hetscedOmega); 
             %% G matrix: derivative of vec(C) wrt vec(AL) 
-            [obj.G,obj.Gcum] = Gmatrices(obj.AL,obj.C,obj.nLags,obj.MaxHorizons,obj.n);  
-            
+            [obj.G,obj.Gcum] = Gmatrices(obj.AL,obj.C,obj.nLags,obj.MaxHorizons,obj.n);   
         disp('Initialization of the VAR model is done.');
        
         
-        end
-    
+        end   
         function stationarityTest(obj)
 % -------------------------------------------------------------------------
 % Checks whether reduced-form VAR model is covariance stationary  
@@ -247,8 +235,6 @@ end
 [~,hqic] = min(hqic); 
 
 end 
-        
-        
     end
     
 end
@@ -268,6 +254,21 @@ function obj = readTS(obj,label) % used in  VecAR constructor
             disp('  Data read is succefull.')   ;  % todo: handle exceptions  
             
 end
+function [theta,d] = computeTheta(AL,Sigma,p,n)
+
+%% this funciton computes the vector of the reduced form parameters, theta vector
+
+Ident = eye(n);
+Vaux2 = kron(Ident(1,:),Ident);
+for i=2:n
+    Vaux2 = [Vaux2; kron(Ident(i,:),Ident(i:end,:))];
+end
+vecAL = reshape(AL,[(n^2)*p,1]);
+vechSigma = Vaux2*reshape(Sigma,[n^2,1]);
+theta = [vecAL; vechSigma]; 
+d = length(theta);
+end
+  
 
 %% functions from folder funcRForm
 
@@ -564,7 +565,7 @@ Gcum = cumsum(G,3);
 disp('  Derivatives of VMA coefficients w.r.t vec(A) are computed successfully.')
 
 end
-function simVAR = simulateVAR(AL,T,nMC,etahat)
+function simVAR   = simulateVAR(AL,T,nMC,etahat)
 % -------------------------------------------------------------------------
 % This function simulate nMC samples of length T based on VAR model with lag polynomial AL 
 % and covariance matrix Sigma 
@@ -634,21 +635,8 @@ dd = sqrt(r.^2+i.^2);
  
 
 end
+
 %********************************************************
-function [theta,d] = computeTheta(AL,Sigma,p,n)
-
-%% this funciton computes the vector of the reduced form parameters, theta vector
-
-Ident = eye(n);
-Vaux2 = kron(Ident(1,:),Ident);
-for i=2:n
-    Vaux2 = [Vaux2; kron(Ident(i,:),Ident(i:end,:))];
-end
-vecAL = reshape(AL,[(n^2)*p,1]);
-vechSigma = Vaux2*reshape(Sigma,[n^2,1]);
-theta = [vecAL; vechSigma]; 
-d = length(theta);
-end
 
 
 %********************************************************
