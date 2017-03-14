@@ -5,7 +5,7 @@ classdef VecAR
     properties (Access = public) 
       names = []; %% Labels for TS         
     end
-    properties (Access=private,Constant)      % todo: make it a cofiguration file
+    properties (Access = private,Constant)      % todo: make it a cofiguration file
         MaxHorizons = 23;      % the number of horizons to compute the IRF 
         hetscedOmega = 0;      % 0=homoscedastic Omega, 1=heteroscedastic Omega
         babn1 = 1000;          % bab: number of bootstrap samples before bias correction
@@ -19,7 +19,7 @@ classdef VecAR
       Y;           % Regressand 
     end
 %%    
-    properties (Access = protected) 
+    properties (SetAccess = public)  %fixme
   %%  Data         
       data = [] ;      
   %% model characteristics
@@ -234,7 +234,15 @@ end
 [~,bic] = min(bic); 
 [~,hqic] = min(hqic); 
 
-end 
+        end 
+        function objNew = resampleData(obj)
+            
+            %% todo : simulate VAR here 
+            objNew = obj;
+            objNew.data = objNew.data*0;
+             
+        end
+            
     end
     
 end
@@ -637,8 +645,6 @@ dd = sqrt(r.^2+i.^2);
 end
 
 %********************************************************
-
-
 %********************************************************
 %********************************************************
 %********************************************************

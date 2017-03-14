@@ -12,7 +12,7 @@ classdef SVAR < VecAR
       ID   =[] ; %% A class with restrictions
     end
     
-   properties (Access=private, Constant)      % todo: make it a cofiguration file
+    properties (Access = private, Constant)      % todo: make it a cofiguration file
         %% Specify shock
         % solve for IRF bounds of specified shock 
         % (by default, compute bounds for all shocks under gridsearch algorithm)
@@ -61,7 +61,7 @@ classdef SVAR < VecAR
       
  %% 
  
-      function solution = IRFBoundsEstimatesAnalytic(obj,minmax)
+      function solution = onesidedIRFHatAnalytic(obj,minmax)
      
 % -------------------------------------------------------------------------
 % Computes point estimates for lower/upper bounds on the structual IRFs 
@@ -310,9 +310,46 @@ solution = struct( ...
            'HAr',HArnew,...    
            'valAr',valArnew);    
 
-end
+      end
 
-      
+      function solution = onesidedIRFCSAnalytic(obj,minmax,level)
+ 
+%% baseline analytical algorithm in GM 2014
+     solutionHat  = onesidedIRFHatAnalytic(obj,minmax);
+     dltCVU = std(obj,solutionHat); 
+% todo switch here min/max
+     solution  = Bounds.Value + dltCVU*norminv(1-(1-level)/2,0,1);
+ 
+  
+% todo : make the following code a separate function
+%% ensure identifying restrictions satisfied
+
+
+%     zeroLB = zeros(RVARhat.n,opt.horizon+1);
+%     zeroUB = zeros(RVARhat.n,opt.horizon+1);
+%     for i=1:size(Bounds.spec.restMat,1)
+%         iv = Bounds.spec.restMat(i,1);
+%         ih = Bounds.spec.restMat(i,2)+1;
+%         ir = Bounds.spec.restMat(i,3);
+%         if ir==0
+%             zeroLB(iv,ih) = 1;
+%             zeroUB(iv,ih) = 1;
+%         elseif ir==1
+%             zeroLB(iv,ih) = 1;
+%         elseif ir==-1
+%             zeroUB(iv,ih) = 1;
+%         end        
+%     end
+%     for t=1:opt.horizon+1
+%         dltU(zeroUB(:,t)==1,t) = min(0,dltU(zeroUB(:,t)==1,t));
+%         dltU(zeroLB(:,t)==1,t) = max(0,dltU(zeroLB(:,t)==1,t));
+%         dltL(zeroUB(:,t)==1,t) = min(0,dltL(zeroUB(:,t)==1,t));
+%         dltL(zeroLB(:,t)==1,t) = max(0,dltL(zeroLB(:,t)==1,t));
+%     end
+%     
+    
+    
+      end
       
       function n = nTS(obj) % fixme
          % Funciton nTS returns the number of time series
@@ -342,6 +379,7 @@ function obj = cnstr(obj)
 % "ON THE MAXIMUM AND MINIMUM RESPONSE TO AN IMPULSE IN SVARS"
 % -------------------------------------------------------------------------
 
+% todo : refactor this code
 
 %% Definitions
 restMat = obj.ID.restMat;
@@ -402,8 +440,7 @@ if ~isempty(FiqMin)
     maskColMin  = logical( full(sparse(FiqMin(:,1),        1+FiqMin(:,2),1,n,hori+1))); 
     
 else
-    maskColMin  = false(n,hori+1)  ;
-  
+    maskColMin  = false(n,hori+1)  ;  
 end
 
 
@@ -421,4 +458,93 @@ obj.spec = struct(...
        'FiqMax',FiqMax,...  % matrix with indexed negative sign restrictions
        'FiqMin',FiqMin,...   % matrix with indexed positive sign restrictions
        'restMat',restMat);   % input restriction matrix
+end
+
+function [CV] = std(SVARobj,solution)
+% -------------------------------------------------------------------------
+% Computes the level-% upper confidence band for the max impulse using 
+% the Delta-Method. 
+% 
+% Inputs:
+% Outputs
+% -------------------------------------------------------------------------
+
+
+%% Read input structure
+cum   = SVARobj.cum;
+Bound = solution.Value; % lower or upper bounds for every TS/horizon
+Hin   = solution.arg;   % argmax vectors for every TS/horizon
+ 
+valAr = solution.valAr; % 
+% Simple or cumulative IRF
+switch(cum)    
+    case 'cum'
+        C = SVARobj.Ccum; % fixme , do not use C and G  
+        G = SVARobj.Gcum;
+    otherwise
+        C = SVARobj.C;
+        G = SVARobj.G;
+end;
+Sigma = SVARobj.Sigma;
+Omega = SVARobj.Omega;
+Vaux  = SVARobj.Vaux;
+T     = SVARobj.T;
+d     = SVARobj.d;
+spec  = SVARobj.spec;
+ 
+
+
+%% Definitons
+n    = size(C,1);
+hori = size(C,2)/n;
+C    = [eye(n),C];
+C    = reshape(C,[n,n,(hori+1)]);
+e    = eye(n);
+sigmaInv = Sigma^(-1);
+nComb = size(valAr,3);
+
+
+%% allocate memory
+CV  =  zeros(n,hori+1);
+
+
+%% compute confidence bands using Delta method
+for m=1:n
+    for t=1:hori+1 
+        
+        CVlong = zeros(nComb,1);
+        
+        for j=1:nComb
+
+            H = Hin(:,m,t) ;
+            B = Bound(m,t);
+             
+            %% compute adjustment for non-contemporaneous restrictions 
+            maskActIneq = (spec.Ziq'*H<1e-5);
+            Zact = [spec.Ziq(:,maskActIneq)';spec.Zeq'];
+            Eact = [spec.eiq(:,maskActIneq)  spec.eeq ];
+            Gact = cat(3, spec.Giq(:,:,maskActIneq'), spec.Geq);
+            w = (Zact * Sigma *  Zact')\Zact * Sigma *C(:,:,t)'*e(:,m);
+            adjustment = 0;
+            for iz=1:size(w) 
+                adjustment = adjustment - w(iz)*kron(H',Eact(:,iz)')*Gact(:,:,iz);
+            end
+
+            %% gradient of parameter vector theta
+             Grad = [kron(H',e(:,m)')*G(:,:,t)+adjustment,...
+                    (B/2)*(kron(H'*sigmaInv, H'*sigmaInv))*Vaux];
+
+            %% gradient of argmax
+             CVlong(j) = abs((Grad*Omega*Grad')^.5)/(T^.5);
+            
+        end
+        
+        CV(m,t) = max(CVlong);
+        
+    end
+end
+
+CV(isnan(CV)) = 0 ; % report 0 if an error has happend
+
+
 end
