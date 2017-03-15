@@ -312,14 +312,14 @@ solution = struct( ...
 
       end
 
-      function solution = onesidedIRFCSAnalytic(obj,minmax,level)
+      function bounds = onesidedIRFCSAnalytic(obj,minmax,level)
  
 %% baseline analytical algorithm in GM 2014
-     solutionHat  = onesidedIRFHatAnalytic(obj,minmax);
-     dltCVU = std(obj,solutionHat); 
+     solutionHat  = onesidedIRFHatAnalytic(obj,minmax); % fix me. Bad name
+     dltCVU = stdIRF(obj,solutionHat); 
 % todo switch here min/max
-     solution  = Bounds.Value + dltCVU*norminv(1-(1-level)/2,0,1);
- 
+     bounds  = solutionHat.Value + dltCVU * norminv(level,0,1);
+     bounds = enforceIRFRestrictions(obj,bounds) ;
   
 % todo : make the following code a separate function
 %% ensure identifying restrictions satisfied
@@ -460,7 +460,7 @@ obj.spec = struct(...
        'restMat',restMat);   % input restriction matrix
 end
 
-function [CV] = std(SVARobj,solution)
+function [CV] = stdIRF(SVARobj,solution)
 % -------------------------------------------------------------------------
 % Computes the level-% upper confidence band for the max impulse using 
 % the Delta-Method. 
@@ -546,5 +546,46 @@ end
 
 CV(isnan(CV)) = 0 ; % report 0 if an error has happend
 
+
+end
+
+function IRF = enforceIRFRestrictions(SVARobj,IRF) 
+%% This function enforces sign and zero restrictions specified in SVARobj 
+%  on IRF  
+%
+% last modified : March 15 2017
+% by Bulat Gafarov
+
+%% read variables from the input objects
+    nShocks = SVARobj.n;
+    restMat = SVARobj.ID.restMat;
+    nRestrictions = size(restMat,1);
+    MaxHorizons = SVARobj.MaxHorizons;
+    
+%% allocate memory    
+    restrictedBelow = false(nShocks,MaxHorizons+1);
+    restrictedAbove = false(nShocks,MaxHorizons+1);    
+    
+    for i = 1:nRestrictions
+        iVariable        = restMat(i,1);
+        iHorizon         = restMat(i,2)+1;
+        iRestrictionType = restMat(i,3);
+        switch iRestrictionType
+            case 0
+                restrictedBelow(iVariable,iHorizon) = true;
+                restrictedAbove(iVariable,iHorizon) = true;
+            case 1
+                restrictedBelow(iVariable,iHorizon) = true;
+            case -1
+                restrictedAbove(iVariable,iHorizon) = true;
+            otherwise
+                 ME = MException('enforceIRFRestrictions:incorrectRestriction', ...
+                    'Unknown restiction type: %d',iRestrictionType);
+                  throw(ME)
+        end        
+    end
+    
+     IRF(restrictedAbove) = min(0,IRF(restrictedAbove));
+     IRF(restrictedBelow) = max(0,IRF(restrictedBelow));
 
 end

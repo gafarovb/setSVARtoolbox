@@ -5,7 +5,7 @@ classdef VecAR
     properties (Access = public) 
       names = []; %% Labels for TS         
     end
-    properties (Access = private,Constant)      % todo: make it a cofiguration file
+    properties (Access = protected,Constant)      % todo: make it a cofiguration file
         MaxHorizons = 23;      % the number of horizons to compute the IRF 
         hetscedOmega = 0;      % 0=homoscedastic Omega, 1=heteroscedastic Omega
         babn1 = 1000;          % bab: number of bootstrap samples before bias correction
