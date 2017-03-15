@@ -14,6 +14,11 @@ classdef VecAR
   
 %%  
     properties (Access = private)
+    %% seeds for random numbers
+      seedMC=NaN; % seedMC: seed for a given MC sample. Use NaN for original dataset
+     
+    
+        
     %% Data  
       X;           % Regressors
       Y;           % Regressand 
@@ -53,7 +58,7 @@ classdef VecAR
         function obj = VecAR(label,nLags)
          % This constructor opens a folder ./label/ and reads data
          % and identifying restrictions    
-        disp(['Initializing VAR model for ' label]);
+            disp(['Initializing VAR model for ' label]);
             if nargin<2
                 obj.nLags = 12 ; 
             else
@@ -61,22 +66,32 @@ classdef VecAR
             end
             disp(['  VAR model has ' num2str(obj.nLags) ' lags.']);
             obj = readTS(obj,label);   % read data   
+            %% auxiliary matrix Vaux such that: vec(Sigma)=Vaux vech(Sigma)
+            [obj.Vaux] = auxiliarymatrix(obj.n);
+            disp('Initialization of the VAR model is done.');           
             % compute LS estimates VAR
             [obj.AL,obj.Sigma,obj.etahat,obj.X,obj.Y,obj.A0] = LS_VAR(obj.data,obj.nLags); 
             [obj.theta,obj.d] = computeTheta(obj.AL,obj.Sigma,obj.nLags,obj.n);
             disp('  LS estimates of VAR model are computed successfully.');
-            %% auxiliary matrix Vaux such that: vec(Sigma)=Vaux vech(Sigma)
-            [obj.Vaux] = auxiliarymatrix(obj.n);
-            %% MA coefficients
-            [obj.C,obj.Ccum] = MARep(obj.AL,obj.nLags,obj.MaxHorizons);  
-            %% Asymptotic covariance matrix for reduced form coefficients
+             %% Asymptotic covariance matrix for reduced form coefficients
             [obj.Omega,obj.Omegainv] = CovAhat_Sigmahat(obj.nLags,obj.X,obj.etahat,obj.Vaux,obj.hetscedOmega); 
+            obj = VMArepresentation(obj);
+        end      
+        function obj = VMArepresentation(obj)
+            %% VMA coefficients
+            [obj.C,obj.Ccum] = MARep(obj.AL,obj.nLags,obj.MaxHorizons);  
             %% G matrix: derivative of vec(C) wrt vec(AL) 
-            [obj.G,obj.Gcum] = Gmatrices(obj.AL,obj.C,obj.nLags,obj.MaxHorizons,obj.n);   
-        disp('Initialization of the VAR model is done.');
-       
-        
-        end   
+            [obj.G,obj.Gcum] = Gmatrices(obj.AL,obj.C,obj.nLags,obj.MaxHorizons,obj.n);     
+        end
+        function obj = eraseData(obj)
+            % this method erases information about the sample but leaves
+            % the dimensions of the data intact
+            obj.data = obj.data * NaN;
+            obj.etahat = obj.etahat * NaN;
+            obj.X =  obj.X * NaN;
+            obj.Y =  obj.Y * NaN;
+            
+        end
         function stationarityTest(obj)
 % -------------------------------------------------------------------------
 % Checks whether reduced-form VAR model is covariance stationary  
@@ -235,12 +250,27 @@ end
 [~,hqic] = min(hqic); 
 
         end 
-        function objNew = resampleData(obj)
+        function objSimulated = resampleTheta(obj,seedMC)
+            if nargin>1
+            %%  simulates theta from the asymptotic distribution  
+            %   and erases the data from objSimulated;
             
-            %% todo : simulate VAR here 
-            objNew = obj;
-            objNew.data = objNew.data*0;
-             
+            objSimulated = eraseData(obj);
+          
+            objSimulated.seedMC = seedMC;
+            rng('default');
+            rng(objSimulated.seedMC,'twister');
+            errors = randn(objSimulated.d,1); 
+            
+            objSimulated.theta  =  obj.theta+((obj.Omega)^(1/2)/(obj.T^.5))*errors; 
+            objSimulated.AL     = reshape(objSimulated.theta(1:(obj.n^2)*obj.nLags),[obj.n,obj.n*obj.nLags]);
+            objSimulated.Sigma  = reshape(obj.Vaux*objSimulated.theta((obj.n^2)*obj.nLags+1:end,1),[obj.n,obj.n]);
+            
+            objSimulated = VMArepresentation(objSimulated); 
+            
+            else 
+                disp('Error: Provide a seed to resample theta.')
+            end
         end
             
     end
