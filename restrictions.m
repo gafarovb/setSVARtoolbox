@@ -1,4 +1,4 @@
-classdef restrictions
+classdef restrictions<handle
     
     
 %%      restrictions class describes restrictions on IRF in SVARS
@@ -8,7 +8,7 @@ classdef restrictions
 %%     
 
 
-    properties
+    properties (Access = private)
         restMatTMP;  % Matrix with columns: Var Hor S/Z Cum Shk
     end
     

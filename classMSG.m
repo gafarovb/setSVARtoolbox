@@ -5,14 +5,13 @@ classdef classMSG < SVAR
     
     methods 
         function obj = classMSG(nLags)
-        obj@SVAR('MSG',nLags);
-           
-        %% adjustments
         
+        obj@SVAR('MSG',nLags);
+        %% adjustments
         obj.data(:,4) = obj.data(:,4)+obj.data(:,1);
         obj.data = obj.data - ones(obj.T,1)*mean(obj.data);  % demean series 
-
         end
+         
     end
     
 end

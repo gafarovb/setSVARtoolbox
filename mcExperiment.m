@@ -4,28 +4,27 @@ classdef mcExperiment
     %   Detailed explanation goes here
     
     properties
-       MaxSimulations = 1000 ;  % number of Monte Carlo simulations
-       seedVector;              % controls random number generation.
-       Design;                  % SVAR object with design
-       array;
+        Design;                  % SVAR object with design
+        Samples;                 % Array of SVAR objects with generated samples
     end
     
-    properties (Access = private, Constant)
-        masterSeed = 123456789; % Seed that generates seeds for every simulation
-    end 
+    properties (Access = private)
+        config;
+    end
     
-    methods 
+    methods
         function obj = mcExperiment(SVARobj)
             obj.Design = SVARobj;
+            obj.config = configSVAR;
             rng('default');
-            rng(obj.masterSeed,'twister');
-            obj.seedVector = randi(1e7,obj.MaxSimulations);
-            array=SVARobj; % todo make a proper object array
-            disp('FIX ME ! mc Experiment')
-            for iMC=1:obj.MaxSimulations
-                array = SVARobj.resampleTheta(obj.seedVector(iMC));
+            rng(obj.config.masterSeed,'twister');
+            seedVector = randi(1e7,obj.config.MaxSimulations); % controls random number generation.
+            
+            for iMC=1:obj.config.MaxSimulations
+                Samples(iMC) = SVARobj.resampleTheta(seedVector(iMC));
             end
-            obj.array=array;
+            obj.Samples=Samples;
+            
         end
         function coverage = testCS(obj)
             % test coverage ??
