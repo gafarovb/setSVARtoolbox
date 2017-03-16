@@ -15,10 +15,7 @@ classdef SVAR < VecAR
     
     properties (Access = private)
         config; % object of configSVAR class
-    end
-    
-    properties (Access = private)
-        spec; % restrictions specifications.
+        spec;   % intermediate computations based restrictions.
     end
     
     %% *****************************************************************
@@ -37,11 +34,10 @@ classdef SVAR < VecAR
             obj.label = label;
             obj.ID = restrictions(label); % read restrictions from a file
             obj = cnstr(obj);             % creates a specificaiton structure to characterize the restrictions
-            
         end
         
         %%
-        function solution = onesidedIRFHatAnalytic(obj,minmax)
+        function [IRFs,solution] = onesidedIRFHatAnalytic(obj,minmax)
             % todo: refactor this method
             
             
@@ -284,7 +280,7 @@ classdef SVAR < VecAR
                     end
                 end
             end
-            
+            IRFs = IRFcollection(value,obj.names,[minmax, ' point estimates']) ;
             solution = struct( ...
                 'Value',value, ...   % lower or upper bounds for every TS/horizon
                 'arg',arg, ...       % argmax vectors for every TS/horizon
@@ -293,20 +289,26 @@ classdef SVAR < VecAR
                 'valAr',valArnew);
             
         end
-        function IRF      = onesidedIRFCSAnalytic(obj,minmax,level)
+        function IRFcol     = onesidedIRFCSAnalytic(obj,minmax,level)
             
             %% baseline analytical algorithm in GM 2014
             
-            pointEstimates  = onesidedIRFHatAnalytic(obj,minmax);
+            [~, pointEstimates]  = onesidedIRFHatAnalytic(obj,minmax);
             switch(minmax)
                 case 'min'
-                    IRF = pointEstimates.Value - stdIRF(obj,pointEstimates) * norminv(level,0,1);
+                    IRFmatrix = pointEstimates.Value - stdIRF(obj,pointEstimates) * norminv(level,0,1);
                 case 'max'
-                    IRF = pointEstimates.Value + stdIRF(obj,pointEstimates) * norminv(level,0,1);
+                    IRFmatrix = pointEstimates.Value + stdIRF(obj,pointEstimates) * norminv(level,0,1);
                 otherwise
                     error('Choose min or max');
             end;
-            IRF = enforceIRFRestrictions(obj,IRF) ;
+            IRFmatrix = enforceIRFRestrictions(obj,IRFmatrix) ;
+            IRFcol    = IRFcollection(IRFmatrix,obj.names,[minmax,' analytic CS with p=',num2str(level)]);
+        end
+        
+        function objSimulated = resampleTheta(obj,seedMC)
+            objSimulated = resampleTheta@VecAR(obj,seedMC);
+            objSimulated = cnstr(objSimulated); 
         end
         function n = nTS(obj) % fixme
             % Funciton nTS returns the number of time series

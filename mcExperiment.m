@@ -19,12 +19,10 @@ classdef mcExperiment
             rng('default');
             rng(obj.config.masterSeed,'twister');
             seedVector = randi(1e7,obj.config.MaxSimulations); % controls random number generation.
-            
             for iMC=1:obj.config.MaxSimulations
                 Samples(iMC) = SVARobj.resampleTheta(seedVector(iMC));
             end
             obj.Samples=Samples;
-            
         end
         function coverage = testCS(obj)
             % test coverage ??

@@ -8,7 +8,7 @@ classdef configSVAR<handle
         % (by default, compute bounds for all shocks under gridsearch algorithm)
     masterSeed = 123456789; % Seed that generates seeds for every simulation
     MaxSimulations = 1000 ;  % number of Monte Carlo simulations
-
+    
     shock = 1; 
 %% further model options
     coverage = 0; % 0=off, 1=on: compute MC coverage frequency
