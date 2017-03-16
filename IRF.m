@@ -26,16 +26,20 @@ classdef IRF
             d = obj.Val;
         end
         function obj = plus(obj1,obj2)
-            a =  double(obj1);
-            b =  double(obj2);
-            obj = obj1;
+            [obj,a,b] = genericOperation(obj1,obj2);
             obj.Val = a + b;
         end
         function obj = minus(obj1,obj2)
-            a =  double(obj1);
-            b =  double(obj2);
-            obj = obj1;
+            [obj,a,b] = genericOperation(obj1,obj2);
             obj.Val = a - b;
+        end
+        function obj = le(obj1,obj2)
+            [obj,a,b] = genericOperation(obj1,obj2);
+            obj.Val = logical(a <= b);
+        end
+        function obj = ge(obj1,obj2)
+            [obj,a,b] = genericOperation(obj1,obj2);
+            obj.Val = logical(a >= b);
         end
         function nHorizons = MaxHorizons(obj)
             nHorizons = size(obj.Val,2)-1;
@@ -46,3 +50,9 @@ classdef IRF
     
 end
 
+function [obj,a,b] = genericOperation(obj1,obj2)
+            a =  double(obj1);
+            b =  double(obj2);
+            obj = obj1;
+            obj.label = [];
+end

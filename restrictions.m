@@ -1,7 +1,7 @@
 classdef restrictions<handle
     
     
-%%      restrictions class describes restrictions on IRF in SVARS
+%%      restrictions class describes restrictions on IRF in SVARs
 %
 %       This version: 3.7.2017
 %       Last edited by Bulat Gafarov 
