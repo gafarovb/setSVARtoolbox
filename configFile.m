@@ -1,14 +1,19 @@
-classdef configSVAR<handle
-    %configSVAR contains specification for SVAR objects
+classdef configFile < handle
+    %configFile contains specification for SVAR objects
     %   Detailed explanation goes here
     
     properties (Access = public,Constant )
-                %% Specify shock
+%% reduced var
+        MaxHorizons = 23;      % the number of horizons to compute the IRF
+        scedasticity = 'hetero';      % 'homo' =0=homoscedastic Omega, 'hetero' =1=heteroscedastic Omega
+        babn1 = 1000;          % bab: number of bootstrap samples before bias correction
+        babn2 = 1000;          % bab: number of bootstrap samples after  bias correction
+       
+        %% Specify shock
         % solve for IRF bounds of specified shock 
         % (by default, compute bounds for all shocks under gridsearch algorithm)
     masterSeed = 123456789; % Seed that generates seeds for every simulation
     MaxSimulations = 1000 ;  % number of Monte Carlo simulations
-    
     shock = 1; 
 %% further model options
     coverage = 0; % 0=off, 1=on: compute MC coverage frequency

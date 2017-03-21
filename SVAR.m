@@ -14,7 +14,6 @@ classdef SVAR < VecAR
     end
     
     properties (Access = private)
-        config; % object of configSVAR class
         spec;   % intermediate computations based restrictions.
     end
     
@@ -30,7 +29,7 @@ classdef SVAR < VecAR
             %  label is the name of the model
             %  nLags is the number of lags in the model
             obj@VecAR(label,nLags); % create a reduced form VAR model
-            obj.config = configSVAR;
+            
             obj.label = label;
             obj.ID = restrictions(label); % read restrictions from a file
             obj = cnstr(obj);             % creates a specificaiton structure to characterize the restrictions
@@ -522,7 +521,7 @@ function IRF = enforceIRFRestrictions(SVARobj,IRF)
 nShocks = SVARobj.n;
 restMat = SVARobj.ID.restMat;
 nRestrictions = size(restMat,1);
-MaxHorizons = SVARobj.MaxHorizons;
+MaxHorizons = SVARobj.config.MaxHorizons;
 
 %% allocate memory
 restrictedBelow = false(nShocks,MaxHorizons+1);

@@ -5,20 +5,15 @@ classdef VecAR
     properties (Access = public)
         names = []; %% Labels for TS
     end
-    properties (Access = protected,Constant)      % todo: make it a cofiguration file
-        MaxHorizons = 23;      % the number of horizons to compute the IRF
-        hetscedOmega = 0;      % 0=homoscedastic Omega, 1=heteroscedastic Omega
-        babn1 = 1000;          % bab: number of bootstrap samples before bias correction
-        babn2 = 1000;          % bab: number of bootstrap samples after  bias correction
+    properties (Access = protected)      % todo: make it a cofiguration file
+        config; % object of configFile class
+
     end
     
     %%
     properties (Access = private)
         %% seeds for random numbers
         seedMC=NaN; % seedMC: seed for a given MC sample. Use NaN for original dataset
-        
-        
-        
         %% Data
         X;           % Regressors
         Y;           % Regressand
@@ -58,7 +53,7 @@ classdef VecAR
         function obj = VecAR(label,nLags)
             % This constructor opens a folder ./label/ and reads data
             % and identifying restrictions
-            
+            obj.config = configFile;
             disp(['Initializing VAR model for ' label]);
             if nargin<2
                 obj.nLags = 12 ;
@@ -75,7 +70,7 @@ classdef VecAR
             [obj.theta,obj.d] = computeTheta(obj.AL,obj.Sigma,obj.nLags,obj.n);
             disp('  LS estimates of VAR model are computed successfully.');
             %% Asymptotic covariance matrix for reduced form coefficients
-            [obj.Omega,obj.Omegainv] = CovAhat_Sigmahat(obj.nLags,obj.X,obj.etahat,obj.Vaux,obj.hetscedOmega);
+            [obj.Omega,obj.Omegainv] = CovAhat_Sigmahat(obj.nLags,obj.X,obj.etahat,obj.Vaux,obj.config.scedasticity);
             obj = VMArepresentation(obj);
             disp('  VMA coefficients are computed successfully.')
             disp('  Derivatives of VMA coefficients w.r.t vec(A) are computed successfully.')
@@ -84,9 +79,9 @@ classdef VecAR
         end
         function obj = VMArepresentation(obj)
             %% VMA coefficients
-            [obj.C,obj.Ccum] = MARep(obj.AL,obj.nLags,obj.MaxHorizons);
+            [obj.C,obj.Ccum] = MARep(obj.AL,obj.nLags,obj.config.MaxHorizons);
             %% G matrix: derivative of vec(C) wrt vec(AL)
-            [obj.G,obj.Gcum] = Gmatrices(obj.AL,obj.C,obj.nLags,obj.MaxHorizons,obj.n);
+            [obj.G,obj.Gcum] = Gmatrices(obj.AL,obj.C,obj.nLags,obj.config.MaxHorizons,obj.n);
         end
         function obj = eraseData(obj)
             % this method erases information about the sample but leaves
@@ -111,7 +106,7 @@ classdef VecAR
             % Inputs:
             % - obj.data  = series: matrix of dimension (T times n) containing the time series
             % - obj.nLags = p: model lag order
-            % - obj.MaxHorizons = hori: model horizon
+            % - obj.config.MaxHorizons = hori: model horizon
             % - obj.babn1 = n1: number of bootstrap samples before bias correction
             % - obj.babn2 = n2: number of bootstrap samples after  bias correction
             % Outputs:
@@ -127,7 +122,7 @@ classdef VecAR
             %%  read inputs from the VecAR object
             series = obj.data;
             p      = obj.nLags;
-            hori   = obj.MaxHorizons ;
+            hori   = obj.config.MaxHorizons ;
             n1 = obj.babn1;
             n2 = obj.babn2;
             AL = obj.AL;
@@ -298,8 +293,8 @@ fclose(fid);
 disp('  Data read is succefull.')   ;  % todo: handle exceptions
 
 end
-function [theta,d] = computeTheta(AL,Sigma,p,n)
 
+function [theta,d] = computeTheta(AL,Sigma,p,n)
 %% this funciton computes the vector of the reduced form parameters, theta vector
 
 Ident = eye(n);
@@ -449,7 +444,7 @@ Ccum = Ccum(:,(n+1):end);
 
 
 end
-function [OmegaHat,OmegaHatinv] = CovAhat_Sigmahat(p,X,eta,Vaux,hetscedOmega)
+function [OmegaHat,OmegaHatinv] = CovAhat_Sigmahat(p,X,eta,Vaux,scedasticity)
 % -------------------------------------------------------------------------
 % Computes the asymptotic variance of [vec(Ahat)',vech(Sigmahat)']'
 % Please, refer to  Lütkepohl H. New introduction to multiple time series analysis. ? Springer, 2007.
@@ -462,7 +457,7 @@ function [OmegaHat,OmegaHatinv] = CovAhat_Sigmahat(p,X,eta,Vaux,hetscedOmega)
 % Outputs:
 % - OmegaHat: asymptotic variance of [vec(Ahat)',vech(Sigmahat)']'
 %
-% This version: March 9, 2015
+% This version: March 21, 2017
 % Last edited by Bulat Gafarov
 %
 
@@ -474,17 +469,16 @@ warning('off','MATLAB:nearlySingularMatrix')
 
 
 
-switch hetscedOmega
-    case 0
+switch scedasticity
+    case 'homo'
         
         %% Definitions
         n = size(eta,1);
         XSVARp = X(:,2:end);
-        %         XSVARp = X;
         T1aux = size(eta,2); %This is the number of time periods
         Sigmau = (eta*eta')/(size(eta,2));
         Gamma = XSVARp'*XSVARp/T1aux;
-        DK = Vaux; % duplication matrix such that vec(Sigma)=D*vech(Sigma)
+        DK = Vaux;     % duplication matrix such that vec(Sigma)=D*vech(Sigma)
         DKplus = (DK'*DK)\DK';
         
         
@@ -503,13 +497,13 @@ switch hetscedOmega
         OmegaHatinv = OmegaHat\eye(size(OmegaHat));
         
         
-    case 1
+    case 'hetero'
         
         %% Definitions
         n = size(eta,1);
         XSVARp = X;
         matagg = [XSVARp,eta']'; %The columns of this vector are (1;X_t; eta_t)
-        T1aux = size(eta,2); %This is the number of time periods
+        T1aux = size(eta,2);    %This is the number of time periods
         T2aux = size(matagg,1); %This is the column dimension of (1;X_t;eta_t)
         
         
@@ -544,7 +538,8 @@ switch hetscedOmega
             zeros(n*(n+1)/2,((n^2)*p)+n), V];
         OmegaHat = (Mhat)*(WhatAss1)*(Mhat');
         OmegaHatinv = OmegaHat\eye(size(OmegaHat));
-        
+    otherwise 
+            error('Warning: choose homo or heteorscedasticity option')
 end
 
 
