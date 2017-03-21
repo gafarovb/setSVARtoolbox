@@ -89,9 +89,9 @@ classdef restrictions<handle
         function nAcitiveSets = countActiveSets(obj,n)
             %% compute number of possible combinations of active sign restrictions
             nAcitiveSets = 1;
-            Ms = obj.countSignRestrictions;
-            for iBin = 1:min(n-1,Ms)
-                nAcitiveSets = nAcitiveSets + nchoosek(Ms,iBin);
+            nSignRestrictions = obj.countSignRestrictions;
+            for iBin = 1:min(n-1,nSignRestrictions)
+                nAcitiveSets = nAcitiveSets + nchoosek(nSignRestrictions,iBin);
             end
         end
     end

@@ -92,12 +92,12 @@ classdef SVAR < VecAR
             
             %% interface
             Sigma = obj.Sigma;
-            Zeq   = obj.ZR;
-            Z     = obj.SR;
+            ZR   = obj.ZR;
+            SR   = obj.SR;
             
             nShocks = size(reducedIRF,1);                %Gives the dimension of the VAR
             hori = size(reducedIRF,2)/nShocks;           %Gives the horizon of IRFs
-            largeNum = obj.config.largeNumber*minInd;
+            largeNum = obj.config.largeNumber * minInd;
             smallNum = obj.config.smallNumber;
             reducedIRF = [eye(nShocks),reducedIRF];
             nComb = obj.ID.countActiveSets(nShocks);
@@ -122,9 +122,8 @@ classdef SVAR < VecAR
             
             
             %% loop through all possible cardinalities of subsets of active sign restrictions
-            ixDoubled = -1; % total index for all cardinalities of active sets
+            iSubproblem = -1; % total index for all cardinalities of active sets
             for SRsubsetCardinality = 0:min(nSignRestrictions,nShocks-nZeroRestrictions-1)
-                
                 %% count number of subsets with subsetCardinality elements
                 if SRsubsetCardinality==0  % no active restrictions
                     combinations = []; % set of combinations is empty!
@@ -135,15 +134,15 @@ classdef SVAR < VecAR
                 end
                 %% loop through all possible subsets of sign restrictions of lengths lx
                 for ix = 1:nSubCombitations
+                    iSubproblem = iSubproblem+2;
                     activeSet = false(nSignRestrictions,1);
-                    if SRsubsetCardinality>0  % active set could be empty
+                    if SRsubsetCardinality > 0  % active set could be empty
                         activeSet(combinations(ix,:)) = true; % create an index mask for a given active set of constraint with index jx
                     end
-                    ixDoubled = ixDoubled+2;
                     % activate only restrictions from activeSet
-                    [BoundsArray(:,:,ixDoubled),BoundsArray(:,:,ixDoubled+1),HArray(:,:,:,ixDoubled),valArray(:,:,ixDoubled)] = subproblemBounds(activeSet,bindingSR);
-                    HArray(:,:,:,ixDoubled+1) = - HArray(:,:,:,ixDoubled);
-                    valArray(:,:,ixDoubled+1) = - valArray(:,:,ixDoubled);
+                    [BoundsArray(:,:,iSubproblem),BoundsArray(:,:,iSubproblem+1),HArray(:,:,:,iSubproblem),valArray(:,:,iSubproblem)] = subproblemBounds(activeSet,bindingSR);
+                    HArray(:,:,:,iSubproblem+1) = - HArray(:,:,:,iSubproblem);
+                    valArray(:,:,iSubproblem+1) = - valArray(:,:,iSubproblem);
                 end
                 
                 
@@ -177,8 +176,8 @@ classdef SVAR < VecAR
                 
                 
                 %% initialize local variables
-                activeZ  = [Zeq; Z(activeSR,:)];
-                inactZ    = Z(~activeSR,:);
+                activeZ  = [ZR; SR(activeSR,:)];
+                inactZ    = SR(~activeSR,:);
                 BoundLocal    = zeros(nShocks,hori+1);
                 BoundLocalNeg = zeros(nShocks,hori+1);
                 valuleLocal    = zeros(nShocks,hori+1);
@@ -216,7 +215,7 @@ classdef SVAR < VecAR
                             if activeSR( bindingSR(iBindingSR,4) )
                                 noSelfPenalty(bindingSR(iBindingSR,1)) = false; % this matrix helps to avoid "selfpenalization"
                             else
-                                columnWithOne = zeros(size(Z,1),1);
+                                columnWithOne = zeros(size(SR,1),1);
                                 columnWithOne(bindingSR(iBindingSR,4))=abs(largeNum);
                                 columnWithOne = columnWithOne(~activeSR,:);
                                 slackness(:,bindingSR(iBindingSR,1))= columnWithOne;
