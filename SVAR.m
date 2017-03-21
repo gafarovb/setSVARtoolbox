@@ -7,18 +7,23 @@ classdef SVAR < VecAR
     %       This version: 3.9.2017
     %       Last edited by Bulat Gafarov
     %%
+
+    
     properties (Access = public)
         label = 'Unknown' ; %% Model label, e.g. MSG 
+        spec;      % intermediate computations based restrictions.
+
     end
     
     properties (Access = private)
-        spec;      % intermediate computations based restrictions.
         ID   =[] ; %% A class with restrictions
+        SR  ; % matrix with sign restrictions
+        ZR  ; % matrix with zero restrictions
+        GSR ; % Derivatives of sign restricted IRF
+        GZR ; % Derivatives of zero restricted IRF
     end
     
     %% *****************************************************************
-    %  *****************************************************************
-    %  *****************************************************************
     %  *****************************************************************
     %% *****************************************************************
     
@@ -28,10 +33,9 @@ classdef SVAR < VecAR
             %  label is the name of the model
             %  nLags is the number of lags in the model
             obj@VecAR(label,nLags); % create a reduced form VAR model
-            
             obj.label = label;
             obj.ID = restrictions(label); % read restrictions from a file
-            obj = cnstr(obj);             % creates a specificaiton structure to characterize the restrictions
+            obj = obj.separateSandZ;             % creates a specificaiton structure to characterize the restrictions
         end
         
         %%
@@ -65,17 +69,19 @@ classdef SVAR < VecAR
             % -------------------------------------------------------------------------
             
             spec = obj.spec;
+            
+            
             %% Read input structure
             % Min or max bounds
             switch(minmax)
                 case 'min'
                     minInd = -1;
-                    maskCol = spec.maskColMin;
+                    maskCol = obj.ID.maskColMin;
                     fiq = spec.FiqMin;
                     sortDirection = 'ascend';
                 case 'max'
                     minInd = 1;
-                    maskCol = spec.maskColMax;
+                    maskCol = obj.ID.maskColMax;
                     fiq = spec.FiqMax;
                     sortDirection = 'descend';
                 otherwise
@@ -287,6 +293,85 @@ classdef SVAR < VecAR
                 'valAr',valArnew);
             
         end
+        
+        
+        function obj = separateSandZ(obj)
+            %% -------------------------------------------------------------------------
+            % This function constructs separate matrices with sign and zero restrictions
+            %
+            % Inputs:
+            % - obj: SVAR object
+            %
+            % Outputs:
+            % - specification: structure containing all information from the
+            %                  restriction matrix
+            %
+            % This version: March 21th, 2017
+            % Last edited :  Bulat Gafarov
+            % -------------------------------------------------------------------------
+            
+            
+            
+            
+            %% interface
+            restMat = obj.ID.restMat;
+            nSignRestrictions = countSignRestrictions(obj.ID);
+            nZeroRestrictions = countZeroRestrictions(obj.ID);
+            obj.ID = constructSelectors( obj.ID,obj.n);
+            n = obj.n;
+            [nG,mG,MaxHorizons] = size(obj.G);
+            VMA    = reshape([eye(n),obj.C]   ,[n,n,MaxHorizons]);
+            VMAcum = reshape([eye(n),obj.Ccum],[n,n,MaxHorizons]);
+            
+            %% allocate memory
+            obj.SR = zeros(nSignRestrictions,n); % matrix with sign restrictions
+            obj.ZR = zeros(nZeroRestrictions,n); % matrix with zero restrictions
+            obj.GSR = zeros(nG,mG,nSignRestrictions); % Derivatives of sign restricted IRF
+            obj.GZR = zeros(nG,mG,nZeroRestrictions); % Derivatives of zero restricted IRF
+            
+            iSR = 1;
+            iZR = 1;
+            
+            for i=1:(nSignRestrictions+nZeroRestrictions) % loop through all restricions
+                
+                currentRestriction = (1-restMat(i,4)) *     VMA(restMat(i,1),:,restMat(i,2)+1) +...
+                    restMat(i,4)  *  VMAcum(restMat(i,1),:,restMat(i,2)+1);
+                currentRestrictionDerivative = (1-restMat(i,4)) *    obj.G(:,:,restMat(i,2)+1) +...
+                    restMat(i,4)  * obj.Gcum(:,:,restMat(i,2)+1);
+                
+                if  restMat(i,3)==0  % check if it is a zero restrictions
+                    obj.ZR(iZR,:)    = currentRestriction;
+                    obj.GZR(:,:,iZR) = currentRestrictionDerivative;
+                    
+                    iZR=iZR+1;
+                else    % sign constraints
+                    
+                    obj.SR(iSR,:) = currentRestriction;
+                    obj.GSR(:,:,iSR) = currentRestrictionDerivative;
+                    %% Convert restrictions to cannonical form
+                    obj.SR(iSR,:)     = restMat(i,3)* obj.SR(iSR,:) ;
+                    obj.GSR(:,:,iSR)  = restMat(i,3)* obj.GSR(:,:,iSR) ;
+                    
+                    iSR=iSR+1;
+                end
+            end
+            %% legacy interface
+            
+            obj.spec = struct(...
+                'Niq',nSignRestrictions,...    % number of sign (inequality) restrictions
+                'Neq',nZeroRestrictions,...    % number of zero (equality) restrictions
+                'eiq',obj.ID.selectorSR,...    % 'e' vectors of inequality restrictions
+                'eeq',obj.ID.selectorZR,...    % 'e' vectors of equality restrictions
+                'Giq',obj.GSR,...    % G matrix associated with inequality constraints
+                'Geq',obj.GZR,...    % G matrix associated with   equality constraints
+                'Ziq',(obj.SR)',...   % sign restrictions
+                'Zeq',(obj.ZR)',...   % zero restrictions
+                'maskColMax',obj.ID.maskColMax,...    % IRF to skip
+                'maskColMin',obj.ID.maskColMin,...    % IRF to skip
+                'FiqMax', obj.ID.negativeSR,...  % matrix with indexed negative sign restrictions
+                'FiqMin', obj.ID.positiveSR,...   % matrix with indexed positive sign restrictions
+                'restMat',obj.ID.restMat);   % input restriction matrix
+        end
         function IRFcol     = onesidedIRFCSAnalytic(obj,minmax,level)
             
             %% baseline analytical algorithm in GM 2014
@@ -305,7 +390,7 @@ classdef SVAR < VecAR
         end   
         function objSimulated = resampleTheta(obj,seedMC)
             objSimulated = resampleTheta@VecAR(obj,seedMC);
-            objSimulated = cnstr(objSimulated); 
+            objSimulated = objSimulated.separateSandZ; 
         end
         function n = nTS(obj) % fixme
             % Funciton nTS returns the number of time series
@@ -321,103 +406,6 @@ end
 
 %--------------- Folder ./funcSForm -----------------------
 
-function obj = cnstr(obj)
-% -------------------------------------------------------------------------
-% This function constructs a structure with the specification of the
-% restrictions and auxilary matrices
-%
-% Inputs:
-% - obj: SVAR object
-%
-% Outputs:
-% - specification: structure containing all information from the
-%                  restriction matrix
-%
-% This version: May 11th, 2015
-% Please, cite Gafarov, B. and Montiel-Olea, J.L. (2015)
-% "ON THE MAXIMUM AND MINIMUM RESPONSE TO AN IMPULSE IN SVARS"
-% -------------------------------------------------------------------------
-
-% todo : refactor this code
-
-%% Definitions
-restMat = obj.ID.restMat;
-Niq = sum(abs(restMat(:,3))); % number of sign restrictions
-Neq = sum(restMat(:,3)==0);   % number of zero restrictions
-% Nfiq =  sum(abs(restMat(:,3))&restMat(:,2)>0); % number of non-contemporaneous sign restrictions
-n = obj.n;
-[nG,mG,hori] = size(obj.G);
-C    = reshape([eye(n),obj.C]   ,[n,n,hori]);
-Ccum = reshape([eye(n),obj.Ccum],[n,n,hori]);
-Fiq  = zeros(Niq,4);% matrix that orders sign restricions
-Ziq = zeros(Niq,n); % matrix with sign restrictions
-Zeq = zeros(Neq,n); % matrix with zero restrictions
-Giq = zeros(nG,mG,Niq); % Derivatives of sign restricted IRF
-Geq = zeros(nG,mG,Neq); % Derivatives of zero restricted IRF
-eiq = zeros(n,Niq);
-eeq = zeros(n,Neq);
-Emat = eye(n);
-
-iiq = 1;
-ieq = 1;
-lf  = 0;
-for i=1:(Niq+Neq) % loop through all restricions
-    if  restMat(i,3)==0  % check if it is a zero restrictions
-        Zeq(ieq,:) = (1-restMat(i,4)) *    C(restMat(i,1),:,restMat(i,2)+1) +...
-            restMat(i,4)  * Ccum(restMat(i,1),:,restMat(i,2)+1);
-        Geq(:,:,ieq) = (1-restMat(i,4)) *    obj.G(:,:,restMat(i,2)+1) +...
-            restMat(i,4) * obj.Gcum(:,:,restMat(i,2)+1);
-        eeq(:,ieq) = Emat(:,restMat(i,1));
-        
-        ieq=ieq+1;
-    else    % sign constraints
-        lf=lf+1;
-        Fiq(lf,1:3)=restMat(i,1:3);
-        Fiq(lf,4)= iiq;
-        Ziq(iiq,:) = (1-restMat(i,4)) *    C(restMat(i,1),:,restMat(i,2)+1) +...
-            restMat(i,4) * Ccum(restMat(i,1),:,restMat(i,2)+1);
-        Giq(:,:,iiq) = (1-restMat(i,4)) *    obj.G(:,:,restMat(i,2)+1) +...
-            restMat(i,4) * obj.Gcum(:,:,restMat(i,2)+1);
-        Ziq(iiq,:)    = restMat(i,3)* Ziq(iiq,:) ;
-        Giq(:,:,iiq)  = restMat(i,3)* Giq(:,:,iiq) ;
-        eiq(:,iiq) = Emat(:,restMat(i,1));
-        iiq=iiq+1;
-    end
-    
-end
-
-
-FiqMax = Fiq(Fiq(:,3)<0,:); % matrix with indexed negative sign restrictions
-FiqMin = Fiq(Fiq(:,3)>0,:); % matrix with indexed positive sign restrictions
-if ~isempty(FiqMax)
-    maskColMax  = logical( full(sparse(FiqMax(:,1),        1+FiqMax(:,2),1,n,hori+1)));
-else
-    maskColMax  = false(n,hori+1)  ;
-    
-end
-if ~isempty(FiqMin)
-    maskColMin  = logical( full(sparse(FiqMin(:,1),        1+FiqMin(:,2),1,n,hori+1)));
-    
-else
-    maskColMin  = false(n,hori+1)  ;
-end
-
-
-obj.spec = struct(...
-    'Niq',Niq,...    % number of sign (inequality) restrictions
-    'Neq',Neq,...    % number of zero (equality) restrictions
-    'eiq',eiq,...    % 'e' vectors of inequality restrictions
-    'eeq',eeq,...    % 'e' vectors of equality restrictions
-    'Giq',Giq,...    % G matrix associated with inequality constraints
-    'Geq',Geq,...    % G matrix associated with   equality constraints
-    'Ziq',Ziq',...   % sign restrictions
-    'Zeq',Zeq',...   % zero restrictions
-    'maskColMax',maskColMax,...    % IRF to skip
-    'maskColMin',maskColMin,...    % IRF to skip
-    'FiqMax',FiqMax,...  % matrix with indexed negative sign restrictions
-    'FiqMin',FiqMin,...   % matrix with indexed positive sign restrictions
-    'restMat',restMat);   % input restriction matrix
-end
 
 function [CV] = stdIRF(SVARobj,solution)
 
