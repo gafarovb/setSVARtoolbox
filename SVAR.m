@@ -49,11 +49,6 @@ classdef SVAR < VecAR
             % need not be contemporaneous.
             % Hint: One can generate lower bounds by supplying -Z instead of Z and by
             % multiplying the output by -1.
-            % One can compare BoundU and BoundU2 to decide if a given value function
-            % can potentially have at least two argmaxima. In that case the
-            % corresponding components will be less than some treshold value epsilon2
-            % This comparison only make sense if there are 2 or more sign restrictions
-            % in the model.
             %
             % Former name : BoundsGM(minmax,RVAR,spec,opt)
             %
@@ -63,12 +58,11 @@ classdef SVAR < VecAR
             % Outputs:
             % - solution: structure with bounds on structural IRFs
             %
-            % This version: March 10, 2017
-            % Please, cite Gafarov, B. and Montiel-Olea, J.L. (2015)
-            % "ON THE MAXIMUM AND MINIMUM RESPONSE TO AN IMPULSE IN SVARS"
+            % This version: March 21, 2017
+            % last edit : Bulat Gafarov
             % -------------------------------------------------------------------------
             
-            spec = obj.spec;
+            
             
             
             %% Read input structure
@@ -77,206 +71,188 @@ classdef SVAR < VecAR
                 case 'min'
                     minInd = -1;
                     maskCol = obj.ID.maskColMin;
-                    fiq = spec.FiqMin;
+                    bindingSR = obj.ID.positiveSR;
                     sortDirection = 'ascend';
                 case 'max'
                     minInd = 1;
                     maskCol = obj.ID.maskColMax;
-                    fiq = spec.FiqMax;
+                    bindingSR = obj.ID.negativeSR;
                     sortDirection = 'descend';
                 otherwise
                     error('Choose min or max');
             end;
             
             %% Simple or cumulative IRF
-            switch(obj.cum)
+            switch (obj.cum)
                 case 'cum'
-                    C = obj.Ccum;
+                    reducedIRF = obj.Ccum;
                 otherwise
-                    C = obj.C;
+                    reducedIRF = obj.C;
             end;
             
-            
+            %% interface
             Sigma = obj.Sigma;
-            Zeq   = spec.Zeq';
-            Z     = spec.Ziq';
+            Zeq   = obj.ZR;
+            Z     = obj.SR;
             
-            
-            %% Definitons
-            n = size(C,1);                %Gives the dimension of the VAR
-            hori = size(C,2)/n;           %Gives the horizon of IRFs
-            largeNum = 100000*minInd;   % fixme
-            C = [eye(n),C];
-            Chataux = reshape(C,[n,n,(hori+1)]);
+            nShocks = size(reducedIRF,1);                %Gives the dimension of the VAR
+            hori = size(reducedIRF,2)/nShocks;           %Gives the horizon of IRFs
+            largeNum = obj.config.largeNumber*minInd;
+            smallNum = obj.config.smallNumber;
+            reducedIRF = [eye(nShocks),reducedIRF];
+            nComb = obj.ID.countActiveSets(nShocks);
+            reducedIRFaux = reshape(reducedIRF,[nShocks,nShocks,(hori+1)]);
             sigmaSqrt = (Sigma)^(1/2);    %Sigma^(1/2) is the symmetric sqrt of Sigma.
             
             
             %% Allocate memory
-            Bound2  = zeros(n,hori+1);
-            [Ms,~] = size(Z); % number of sign restrictions
-            [Mz,~] = size(Zeq); % number of zero restrictions
+            nSignRestrictions = obj.ID.countSignRestrictions;  % number of sign restrictions
+            nZeroRestrictions = obj.ID.countZeroRestrictions;  % number of zero restrictions
+            
+            
+            
+            %% This segment implements the formula from Proposition 1 and 2
+            
+            
+            %% initialize
+            BoundsArray = - largeNum * ones(nShocks,hori+1,nComb*2);
+            HArray      = zeros(nShocks,nShocks,hori+1,nComb*2);
+            valArray = zeros(nShocks,hori+1,nComb*2);
+            
+            
+            
+            %% loop through all possible cardinalities of subsets of active sign restrictions
+            ixDoubled = -1; % total index for all cardinalities of active sets
+            for SRsubsetCardinality = 0:min(nSignRestrictions,nShocks-nZeroRestrictions-1)
+                
+                %% count number of subsets with subsetCardinality elements
+                if SRsubsetCardinality==0  % no active restrictions
+                    combinations = []; % set of combinations is empty!
+                    nSubCombitations = 1; % we need to consider only the unrestricted case
+                else
+                    combinations = combnk(1:nSignRestrictions,SRsubsetCardinality); % matrix with indexes of all subsets of length lx
+                    [nSubCombitations,~] = size(combinations);   % number of combinations of length lx to consider
+                end
+                %% loop through all possible subsets of sign restrictions of lengths lx
+                for ix = 1:nSubCombitations
+                    activeSet = false(nSignRestrictions,1);
+                    if SRsubsetCardinality>0  % active set could be empty
+                        activeSet(combinations(ix,:)) = true; % create an index mask for a given active set of constraint with index jx
+                    end
+                    ixDoubled = ixDoubled+2;
+                    % activate only restrictions from activeSet
+                    [BoundsArray(:,:,ixDoubled),BoundsArray(:,:,ixDoubled+1),HArray(:,:,:,ixDoubled),valArray(:,:,ixDoubled)] = subproblemBounds(activeSet,bindingSR);
+                    HArray(:,:,:,ixDoubled+1) = - HArray(:,:,:,ixDoubled);
+                    valArray(:,:,ixDoubled+1) = - valArray(:,:,ixDoubled);
+                end
+                
+                
+            end
+            
+            
+            %% generate output
+            % Find maximum over all combinations of active sets
+            [BoundsArSort,indexSet] = sort(BoundsArray,3,sortDirection);
+            value = BoundsArSort(:,:,1);  % maximum bounds
+            arg =  zeros(nShocks,nShocks,hori+1);     % argmax vectors for every TS/horizon
+            for k = 1:(hori+1)
+                for ts=1:nShocks
+                    arg(:,ts,k) = HArray(:,ts,k,indexSet(ts,k,1));
+                end
+            end
+            value(maskCol) = ((minInd*value(maskCol))<0).* value(maskCol);
+            
+            
+            IRFs = IRFcollection(value,obj.names,[minmax, ' point estimates']) ;
+            
             
             
             
             % -------------------------------------------------------------------------
             %% Define nested functions
             
-            function [Boundloc,BoundlocNeg,Hloc,valloc,conviol,conviolNeg]=restricted(active,fiq)
+            function [BoundLocal,BoundLocalNeg,Hlocal,valuleLocal] = subproblemBounds(activeSR,bindingSR)
                 % this subfunction computes the upper bounds BoundU and the corresponding
                 % argmaxes HU given that Zactive constraints are active and sign constraints Z are imposed
                 
                 
                 %% initialize local variables
-                Zactive  = [Zeq; Z(active,:)];
-                Znact    = Z(~active,:);
-                Boundloc    = zeros(n,hori+1);
-                BoundlocNeg = zeros(n,hori+1);
-                conviol    = zeros(n,hori+1);
-                conviolNeg = zeros(n,hori+1);
-                valloc    = zeros(n,hori+1);
-                Hloc = zeros(n,n,hori+1);
+                activeZ  = [Zeq; Z(activeSR,:)];
+                inactZ    = Z(~activeSR,:);
+                BoundLocal    = zeros(nShocks,hori+1);
+                BoundLocalNeg = zeros(nShocks,hori+1);
+                valuleLocal    = zeros(nShocks,hori+1);
+                Hlocal = zeros(nShocks,nShocks,hori+1);
                 
                 
                 %% 'effective' covariance matrix under active constraints
                 %  Compare with Lemma 1
-                if ~isempty(Zactive) % if there are active zero constraints
-                    M = eye(n) - ( (sigmaSqrt * Zactive')*((Zactive * Sigma * Zactive')^(-1))* (Zactive * sigmaSqrt)) ; % compare with  Proposition 1
+                if ~isempty(activeZ) % if there are active zero constraints
+                    M = eye(nShocks) - ( (sigmaSqrt * activeZ')*((activeZ * Sigma * activeZ')^(-1))* (activeZ * sigmaSqrt)) ; % compare with  Proposition 1
                     sigmaM = sigmaSqrt * M * sigmaSqrt;   % "Effective" covariance matrix given the set Zactive
-                else % if there are no active zero constraints, follow the formula for the  unresrticted case
+                else % if there are no active or zero constraints, follow the formula for the  unresrticted case
                     sigmaM = Sigma ;
                 end
                 
-                
-                for ix=1:hori+1  % loop over IRF horizon
+                for iHorizon=1:hori+1  % loop over IRF horizon
                     
                     %% bounds under active constraints
-                    Htmp = sigmaM*Chataux(:,:,ix)';
+                    Htmp = sigmaM*reducedIRFaux(:,:,iHorizon)';
                     % Compute max value under active constraints
                     % - abs is used to avoid complex numbers with Imaginary part equal to Numerical zero
-                    boundtmp = abs((diag(Chataux(:,:,ix) * Htmp)).^.5);
+                    boundtmp = abs((diag(reducedIRFaux(:,:,iHorizon) * Htmp)).^.5);
                     % Compute argmax under active constraints
                     %  - bsxfun divides by zeros without warning
-                    Hloc(:,:,ix) = bsxfun(@rdivide,Htmp,boundtmp');
-                    %         Hloc(:,:,ix) = Htmp./(ones(n,1)*boundtmp');
-                    
-                    
-                    %         Hloc(:,:,ix)=spec.Bounds_ex3.mini.arg(:,:,2);
-                    
+                    Hlocal(:,:,iHorizon) = bsxfun(@rdivide,Htmp,boundtmp');
+                    BoundLocal(:,iHorizon)    =   boundtmp ;
+                    BoundLocalNeg(:,iHorizon) = - boundtmp ;
+                    valuleLocal(:,iHorizon)   =   boundtmp ;
                     
                     %% Check whether signs restrictions are satisfied. Compare with Proposition 1
-                    mask  = true(n,1)  ;
-                    slackness = zeros(size(Znact,1),n);
-                    for iFiq=1:size(fiq,1)
-                        if   (fiq(iFiq,2)+1)==ix
-                            if active( fiq(iFiq,4) )
-                                mask(fiq(iFiq,1))=false;
+                    noSelfPenalty  = true(nShocks,1)  ;
+                    slackness = zeros(size(inactZ,1),nShocks); % this matrix helps to avoid "selfpenalization"
+                    for iBindingSR=1:size(bindingSR,1)
+                        if   (bindingSR(iBindingSR,2)+1)==iHorizon
+                            if activeSR( bindingSR(iBindingSR,4) )
+                                noSelfPenalty(bindingSR(iBindingSR,1)) = false; % this matrix helps to avoid "selfpenalization"
                             else
                                 columnWithOne = zeros(size(Z,1),1);
-                                columnWithOne(fiq(iFiq,4))=abs(largeNum);
-                                columnWithOne = columnWithOne(~active,:);
-                                slackness(:,fiq(iFiq,1))= columnWithOne ; %this matrix relaxes 'self'- sign restrictions
+                                columnWithOne(bindingSR(iBindingSR,4))=abs(largeNum);
+                                columnWithOne = columnWithOne(~activeSR,:);
+                                slackness(:,bindingSR(iBindingSR,1))= columnWithOne;
                             end
                         end
                     end
-                    if isempty(Znact)  % if there are no sign restrictions, the idicator functions are equal to 1
-                        Boundloc(:,ix)    =   boundtmp ;
-                        BoundlocNeg(:,ix) = - boundtmp ;
-                    else  % iff  some sign restriction is violated by a margin of a numerical error of 1.e-6
-                        % the corresponding indicator function is equal to 0
-                        Boundloc(:,ix)    =   boundtmp - largeNum * (ones(n,1) - ( all(Znact*Hloc(:,:,ix)+slackness>-1.0e-6,1)' & mask ) );
-                        BoundlocNeg(:,ix) = - boundtmp - largeNum * (ones(n,1) - ( all(Znact*Hloc(:,:,ix)-slackness< 1.0e-6,1)' & mask ) );
+                    
+                    % if there are no sign restrictions, the idicator functions are equal to 1
+                    % iff  some sign restriction is violated by a margin of a numerical error of 1.e-6
+                    % the corresponding indicator function is equal to 0
+                    boundsToPenalize =    (ones(nShocks,1) - ( all(inactZ*Hlocal(:,:,iHorizon)+slackness>-smallNum,1)' & noSelfPenalty ) );
+                    boundsToPenalizeNeg = (ones(nShocks,1) - ( all(inactZ*Hlocal(:,:,iHorizon)-slackness< smallNum,1)' & noSelfPenalty ) );
+                    
+                    
+                    %% impose penalty for the violation of feasibility constraint
+                    if ~isempty(inactZ)
+                        BoundLocal(:,iHorizon)    =   BoundLocal(:,iHorizon) - largeNum * boundsToPenalize;
+                        BoundLocalNeg(:,iHorizon) =BoundLocalNeg(:,iHorizon) - largeNum * boundsToPenalizeNeg;
                     end
-                    conviol(:,ix)    = min( Znact*Hloc(:,:,ix))'<-1e-6;
-                    conviolNeg(:,ix) = min(-Znact*Hloc(:,:,ix))'<-1e-6;
-                    valloc(:,ix)    =   boundtmp;
+                    
                 end
+                
+                
             end
             % -------------------------------------------------------------------------
             
             
-            %% This segment implements the formula from Proposition 1 and 2
             
             
-            %% compute number of combinations of active sign restrictions
-            nComb = 1;
-            for iBin = 1:min(n-1,Ms)
-                nComb = nComb + nchoosek(Ms,iBin);
-            end
-            
-            
-            %% initialize
-            BoundsAr = - largeNum*ones(n,hori+1,nComb*2);
-            HAr      = zeros(n,n,hori+1,(nComb)*2);
-            Boundlx  = zeros(n,hori+1);
-            valAr = zeros(n,hori+1,nComb*2);
-            ConViol = zeros(n,hori+1,nComb*2);
-            
-            
-            %% loop through all possible cardinalities of subsets of active sign restrictions
-            lg = -1; % total index for all cardinalities of active sets
-            for lx = 0:min(Ms,n-Mz-1)
-                
-                
-                %% count number of subsets of given length lx
-                if lx==0  % no active restrictions
-                    combinations = []; % set of combinations is empty!
-                    lN = 1; % we need to consider only the unrestricted case
-                else
-                    combinations = combnk(1:Ms,lx); % matrix with indexes of all subsets of length lx
-                    [lN,~] = size(combinations);   % number of combinations of length lx to consider
-                end
-                
-                
-                %% loop through all possible subsets of sign restrictions of lengths lx
-                ll = lg+2; % the first index of active set of length lx
-                for jx = 1:lN
-                    activeSet = false(Ms,1);
-                    if lx>0  % active set could be empty
-                        activeSet(combinations(jx,:)) = true; % create an index mask for a given active set of constraint with index jx
-                    end
-                    lg = lg+2;
-                    % activate only restrictions from activeSet
-                    %         [BoundsAr(:,:,lg),BoundsAr(:,:,lg+1),HAr(:,:,:,lg)] = restricted(activeSet,fiq);
-                    [BoundsAr(:,:,lg),BoundsAr(:,:,lg+1),HAr(:,:,:,lg),valAr(:,:,lg),ConViol(:,:,lg),ConViol(:,:,lg+1)] = restricted(activeSet,fiq);
-                    HAr(:,:,:,lg+1) = -HAr(:,:,:,lg);
-                    valAr(:,:,lg+1) = -valAr(:,:,lg);
-                end
-                lu = lg+1; % the last index of active set of length lx
-                
-                
-                %% check for multiplicity of solutions, see Proposiion 2
-                [BoundlxSort,~] = sort(BoundsAr(:,:,ll:lu),3,sortDirection);
-                BoundlxMAX = (lx+1)*(BoundlxSort(:,:,1)>0); % check if we found max that doesn't violate the sign constraing for the cardinality lx
-                if lu>ll  %if there are different active set of cardinality lx, ...
-                    BoundlxMAX2 = BoundlxSort(:,:,2); %  store second largest value, possibly zero
-                else
-                    BoundlxMAX2 = zeros(n,hori+1); %  otherwise store zero
-                end
-                % check for "nestedness" of the second largest value
-                Boundlx(Boundlx==0)     = BoundlxMAX(Boundlx==0); % this array stores cardinalities for the maximums that we have found already
-                Bound2(Boundlx==(lx+1)) = BoundlxMAX2(Boundlx==(lx+1)); % this operation stores  2nd largest non-zero for cardinalities lx
-                % only if we already have found a corresponding maximum of the same cardinality
-            end
-            
-            
-            %% generate output
-            % Find maximum over all combinations of active sets
-            [BoundsArSort,indexSet] = sort(BoundsAr,3,sortDirection);
-            value = BoundsArSort(:,:,1);  % maximum bounds
-            arg =  zeros(n,n,hori+1);     % argmax vectors for every TS/horizon
-            for k = 1:(hori+1)
-                for ts=1:n
-                    arg(:,ts,k) = HAr(:,ts,k,indexSet(ts,k,1));
-                end
-            end
-            value(maskCol) = ((minInd*value(maskCol))<0).*value(maskCol);
-            
-            valArlong = reshape(valAr,[n,hori+1,2,nComb]);
+            %% legacy code
+            valArlong = reshape(valArray,[nShocks,hori+1,2,nComb]);
             [~,ind] = max(minInd*valArlong,[],3);
-            valArnew = zeros(n,hori+1,nComb);
-            HArlong = reshape(HAr,[n,n,hori+1,2,nComb]);
-            HArnew = zeros(n,n,hori+1,nComb);
-            for i=1:n
+            valArnew = zeros(nShocks,hori+1,nComb);
+            HArlong = reshape(HArray,[nShocks,nShocks,hori+1,2,nComb]);
+            HArnew = zeros(nShocks,nShocks,hori+1,nComb);
+            for i=1:nShocks
                 for h=1:hori+1
                     for j=1:nComb
                         valArnew(i,h,j) = valArlong(i,h,ind(i,h,1,j),j);
@@ -284,11 +260,12 @@ classdef SVAR < VecAR
                     end
                 end
             end
-            IRFs = IRFcollection(value,obj.names,[minmax, ' point estimates']) ;
+            
+            
+            
             solution = struct( ...
                 'Value',value, ...   % lower or upper bounds for every TS/horizon
                 'arg',arg, ...       % argmax vectors for every TS/horizon
-                'Value2',Bound2,...  % second largest values that don't violate the sign constraints and the "nestedness" rule
                 'HAr',HArnew,...
                 'valAr',valArnew);
             
@@ -368,7 +345,7 @@ classdef SVAR < VecAR
                 'Zeq',(obj.ZR)',...   % zero restrictions
                 'maskColMax',obj.ID.maskColMax,...    % IRF to skip
                 'maskColMin',obj.ID.maskColMin,...    % IRF to skip
-                'FiqMax', obj.ID.negativeSR,...  % matrix with indexed negative sign restrictions
+                'FiqMax', obj.ID.negativeSR,...   % matrix with indexed negative sign restrictions
                 'FiqMin', obj.ID.positiveSR,...   % matrix with indexed positive sign restrictions
                 'restMat',obj.ID.restMat);   % input restriction matrix
         end

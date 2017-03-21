@@ -17,8 +17,8 @@ classdef restrictions<handle
         selectorZR;    % 'e' vectors of equality restrictions
         maskColMax;    % IRF to skip
         maskColMin;    % IRF to skip
-        negativeSR;    % matrix with indexed negative sign restrictions
-        positiveSR;    % matrix with indexed positive sign restrictions
+        negativeSR;    % matrix with indexed negative sign restrictions : Var Horizon (-1) iSignRestriction 
+        positiveSR;    % matrix with indexed positive sign restrictions : Var Horizon ( 1) iSignRestriction
     end
     
     methods
@@ -85,6 +85,14 @@ classdef restrictions<handle
         function nZeroRestrictions = countZeroRestrictions(obj)
             restMat = obj.restMat;
             nZeroRestrictions = sum(restMat(:,3)==0);   % number of zero restrictions
+        end
+        function nAcitiveSets = countActiveSets(obj,n)
+            %% compute number of possible combinations of active sign restrictions
+            nAcitiveSets = 1;
+            Ms = obj.countSignRestrictions;
+            for iBin = 1:min(n-1,Ms)
+                nAcitiveSets = nAcitiveSets + nchoosek(Ms,iBin);
+            end
         end
     end
     

@@ -9,7 +9,8 @@ classdef configFile < handle
         babn1 = 1000;          % bab: number of bootstrap samples before bias correction
         babn2 = 1000;          % bab: number of bootstrap samples after  bias correction
    
-        
+        largeNumber = 100000;  % FIXME: constant c from the paper 
+        smallNumber = 1e-6;
         %% Svar
          cum = '';  % 'cum' = cumulative IRF responses
 
