@@ -8,13 +8,12 @@ classdef SVAR < VecAR
     %       Last edited by Bulat Gafarov
     %%
     properties (Access = public)
-        label = 'Unknown' ; %% Model label, e.g. MSG
-        ID   =[] ; %% A class with restrictions
-        cum = '';  % 'cum' = cumulative IRF responses
+        label = 'Unknown' ; %% Model label, e.g. MSG 
     end
     
     properties (Access = private)
-        spec;   % intermediate computations based restrictions.
+        spec;      % intermediate computations based restrictions.
+        ID   =[] ; %% A class with restrictions
     end
     
     %% *****************************************************************
@@ -303,8 +302,7 @@ classdef SVAR < VecAR
             end;
             IRFmatrix = enforceIRFRestrictions(obj,IRFmatrix) ;
             IRFcol    = IRFcollection(IRFmatrix,obj.names,[minmax,' analytic CS with p=',num2str(level)]);
-        end
-        
+        end   
         function objSimulated = resampleTheta(obj,seedMC)
             objSimulated = resampleTheta@VecAR(obj,seedMC);
             objSimulated = cnstr(objSimulated); 
@@ -312,6 +310,9 @@ classdef SVAR < VecAR
         function n = nTS(obj) % fixme
             % Funciton nTS returns the number of time series
             n = obj.n;
+        end
+        function cumOrNot = cum(obj)
+            cumOrNot = obj.config.cum;
         end
         
     end

@@ -1,25 +1,25 @@
 classdef VecAR
-    %VAR is a class for a time series collection
+    %VecAR is a class for a time series collection
     %   Detailed explanation goes here
     
     properties (Access = public)
         names = []; %% Labels for TS
     end
-    properties (Access = protected)      % todo: make it a cofiguration file
-        config; % object of configFile class
-
+    properties (Access = protected)      
+        
     end
     
     %%
     properties (Access = private)
         %% seeds for random numbers
-        seedMC=NaN; % seedMC: seed for a given MC sample. Use NaN for original dataset
+        seedMC = NaN; % seedMC: seed for a given MC sample. Use NaN for original dataset
         %% Data
         X;           % Regressors
         Y;           % Regressand
     end
     %%
-    properties (SetAccess = public)  %fixme
+    properties (SetAccess = protected)  %fixme
+        config; % object of configFile class
         %%  Data
         data = [] ;
         %% model characteristics
@@ -27,7 +27,6 @@ classdef VecAR
         n = 0 ;       % Number of Time series/dimension of shocks
         T = 0 ;       % Number of time periods
         d = 0 ;          % Length of vector of reduced-form parameters
-        
         %% Estimates of VAR parameters (theta)
         AL;          % AL is the estimated lag polynomial
         A0;          % A0 is the estimated constant
@@ -62,21 +61,25 @@ classdef VecAR
             end
             disp(['  VAR model has ' num2str(obj.nLags) ' lags.']);
             obj = readTS(obj,label);   % read data
-            %% auxiliary matrix Vaux such that: vec(Sigma)=Vaux vech(Sigma)
+            
+            % auxiliary matrix Vaux such that: vec(Sigma)=Vaux vech(Sigma)
             [obj.Vaux] = auxiliarymatrix(obj.n);
             disp('Initialization of the VAR model is done.');
             % compute LS estimates VAR
             [obj.AL,obj.Sigma,obj.etahat,obj.X,obj.Y,obj.A0] = LS_VAR(obj.data,obj.nLags);
-            [obj.theta,obj.d] = computeTheta(obj.AL,obj.Sigma,obj.nLags,obj.n);
+            [obj.theta,obj.d] = ALSigma2Theta(obj.AL,obj.Sigma,obj.nLags,obj.n);
             disp('  LS estimates of VAR model are computed successfully.');
-            %% Asymptotic covariance matrix for reduced form coefficients
-            [obj.Omega,obj.Omegainv] = CovAhat_Sigmahat(obj.nLags,obj.X,obj.etahat,obj.Vaux,obj.config.scedasticity);
+            obj = computeCovariance(obj);
             obj = VMArepresentation(obj);
             disp('  VMA coefficients are computed successfully.')
             disp('  Derivatives of VMA coefficients w.r.t vec(A) are computed successfully.')
             
             
         end
+        function obj = computeCovariance(obj)
+           %% Asymptotic covariance matrix for reduced form coefficients
+            [obj.Omega,obj.Omegainv] = CovAhat_Sigmahat(obj.nLags,obj.X,obj.etahat,obj.Vaux,obj.config.scedasticity);
+        end   
         function obj = VMArepresentation(obj)
             %% VMA coefficients
             [obj.C,obj.Ccum] = MARep(obj.AL,obj.nLags,obj.config.MaxHorizons);
@@ -90,7 +93,6 @@ classdef VecAR
             obj.etahat = obj.etahat * NaN;
             obj.X =  obj.X * NaN;
             obj.Y =  obj.Y * NaN;
-            
         end
         function stationarityTest(obj)
             % -------------------------------------------------------------------------
@@ -107,15 +109,13 @@ classdef VecAR
             % - obj.data  = series: matrix of dimension (T times n) containing the time series
             % - obj.nLags = p: model lag order
             % - obj.config.MaxHorizons = hori: model horizon
-            % - obj.babn1 = n1: number of bootstrap samples before bias correction
-            % - obj.babn2 = n2: number of bootstrap samples after  bias correction
+            % - obj.config.babn1 = n1: number of bootstrap samples before bias correction
+            % - obj.config.babn2 = n2: number of bootstrap samples after  bias correction
             % Outputs:
             % - output: structure containing all reduced-form model objects
             %           after bootstrapping
             %
             % This version: March 31, 2015
-            % Please, cite Gafarov, B. and Montiel-Olea, J.L. (2015)
-            % "ON THE MAXIMUM AND MINIMUM RESPONSE TO AN IMPULSE IN SVARS"
             % -------------------------------------------------------------------------
             
             
@@ -123,8 +123,8 @@ classdef VecAR
             series = obj.data;
             p      = obj.nLags;
             hori   = obj.config.MaxHorizons ;
-            n1 = obj.babn1;
-            n2 = obj.babn2;
+            n1 = obj.config.babn1;
+            n2 = obj.config.babn2;
             AL = obj.AL;
             sigma = obj.Sigma;
             etahat = obj.etahat;
@@ -274,6 +274,7 @@ classdef VecAR
             
         end
         
+        
     end
     
 end
@@ -293,8 +294,7 @@ fclose(fid);
 disp('  Data read is succefull.')   ;  % todo: handle exceptions
 
 end
-
-function [theta,d] = computeTheta(AL,Sigma,p,n)
+function [theta,d] = ALSigma2Theta(AL,Sigma,p,n)
 %% this funciton computes the vector of the reduced form parameters, theta vector
 
 Ident = eye(n);
@@ -362,8 +362,6 @@ function [Vaux] = auxiliarymatrix(n)
 % - Vaux: auxiliary matrix
 %
 % This version: February 24, 2015
-% Please, cite Gafarov, B and Montiel-Olea, J.L. (2015)
-% "ON THE MAXIMUM AND MINIMUM RESPONSE TO AN IMPULSE IN SVARS"
 % -------------------------------------------------------------------------
 
 Aux = eye(n);
@@ -406,15 +404,12 @@ function [C,Ccum] = MARep(AL,p,hori)
 % - C: MA representation coefficients
 %
 % This version: March 31, 2015
-% Please, cite Gafarov, B. and Montiel-Olea, J.L. (2015)
-% "ON THE MAXIMUM AND MINIMUM RESPONSE TO AN IMPULSE IN SVARS"
 % -------------------------------------------------------------------------
 
 
 %% Reshape AL into a 3-D array
 n = size(AL,1);
 vecAL = reshape(AL,[n,n,p]);
-
 
 %% Initialize the value of the auxiliary array vecALrevT
 vecALrevT = zeros(n,n,hori);
@@ -441,8 +436,6 @@ Chataux = cumsum(reshape(Ctmp,[n,n,(hori+1)]),3);
 Ccum = reshape(Chataux,[n,n*(hori+1)]);
 Ccum = Ccum(:,(n+1):end);
 
-
-
 end
 function [OmegaHat,OmegaHatinv] = CovAhat_Sigmahat(p,X,eta,Vaux,scedasticity)
 % -------------------------------------------------------------------------
@@ -459,8 +452,6 @@ function [OmegaHat,OmegaHatinv] = CovAhat_Sigmahat(p,X,eta,Vaux,scedasticity)
 %
 % This version: March 21, 2017
 % Last edited by Bulat Gafarov
-%
-
 % -------------------------------------------------------------------------
 
 
@@ -518,11 +509,11 @@ switch scedasticity
         %This is the covariance matrix we are interested in
         
         
-        %% Construct the selector matrix Vaux that gives: vech(Sigma)=Vaux*vec(Sigma)
+        %% Construct the selector matrix VauxInverse that gives: vech(Sigma)=Vaux*vec(Sigma)
         I = eye(n);
-        V = kron(I(1,:),I);
+        VauxInverse = kron(I(1,:),I);
         for i=2:n
-            V = [V; kron(I(i,:),I(i:end,:))];
+            VauxInverse = [VauxInverse; kron(I(i,:),I(i:end,:))];
         end
         
         
@@ -535,7 +526,7 @@ switch scedasticity
         
         %% This is the estimator for matrix W in Assumption 1
         Mhat = [kron([zeros(n*p,1),eye(n*p)]*(XSVARp'*XSVARp./T1aux)^(-1),eye(n)), zeros((n^2)*p,n^2); ...
-            zeros(n*(n+1)/2,((n^2)*p)+n), V];
+            zeros(n*(n+1)/2,((n^2)*p)+n), VauxInverse];
         OmegaHat = (Mhat)*(WhatAss1)*(Mhat');
         OmegaHatinv = OmegaHat\eye(size(OmegaHat));
     otherwise 
@@ -566,8 +557,6 @@ function [G,Gcum] = Gmatrices(AL,C,p,hori,n)
 % - G: derivatives of C wrt A
 %
 % This version: March 31, 2015
-% Please, cite Gafarov, B. and Montiel-Olea, J.L. (2015)
-% "ON THE MAXIMUM AND MINIMUM RESPONSE TO AN IMPULSE IN SVARS"
 % -------------------------------------------------------------------------
 
 
@@ -581,7 +570,6 @@ AJ = zeros(n*p, n, hori);
 for k=1:hori
     AJ(:,:,k) = ((Alut)^(k-1)) * J';
 end
-
 
 %% matrix [ JA'^0; JA'^1; ... J'A^{k-1} ];
 JAp = reshape(AJ, [n*p,n*hori])';
@@ -617,8 +605,6 @@ function simVAR   = simulateVAR(AL,T,nMC,etahat)
 % - simVAR: (T x n x nMC) 3d array of simulated data
 %
 % This version: February 24, 2015
-% Please, cite Gafarov, B and Montiel-Olea, J.L. (2015)
-% "ON THE MAXIMUM AND MINIMUM RESPONSE TO AN IMPULSE IN SVARS"
 % -------------------------------------------------------------------------
 
 % To do list
@@ -649,8 +635,6 @@ function stationarity(AL,p,n)
 % Outputs: (none)
 %
 % This version: March 31, 2015
-% Please, cite Gafarov, B. and Montiel-Olea, J.L. (2015)
-% "ON THE MAXIMUM AND MINIMUM RESPONSE TO AN IMPULSE IN SVARS"
 % -------------------------------------------------------------------------
 
 
