@@ -1,4 +1,4 @@
-classdef restrictions<handle
+classdef IDrestrictions<handle
     
     
     %%      restrictions class describes restrictions on IRF in SVARs
@@ -9,7 +9,7 @@ classdef restrictions<handle
     
     
     properties (Access = private)
-        restMatSource;  % Matrix with columns: Var Hor S/Z Cum Shk
+        restrictionsMatrixInput;  % Matrix with columns: Var Hor S/Z Cum Shk
     end
     
     properties (SetAccess = public)
@@ -22,9 +22,9 @@ classdef restrictions<handle
     end
     
     methods
-        function obj = restrictions(label)
+        function obj = IDrestrictions(restricitonsFilename)
             % read the restricitons matrix from a file  'restMat.dat'
-            obj.restMatSource = load([label filesep 'restMat.dat']);
+            obj.restrictionsMatrixInput = load(restricitonsFilename);
         end
         function obj = constructSelectors(obj,nShocks)
             % this function constructs selector matrices corresponding to the restrictions 
@@ -33,7 +33,7 @@ classdef restrictions<handle
             nSignRestrictions = countSignRestrictions(obj);
             nZeroRestrictions = countZeroRestrictions(obj);
             MaxHorizons = configFile.MaxHorizons;         
-            restMat = obj.restMat;
+            restMat = obj.getRestMat;
             
             %% allocate memory
             orderOfSR  = zeros(nSignRestrictions,4);  
@@ -74,19 +74,19 @@ classdef restrictions<handle
 
             
         end
-        function matrix = restMat(obj)
+        function matrix = getRestMat(obj)
             % read the restricitons matrix
-            matrix = obj.restMatSource;
+            matrix = obj.restrictionsMatrixInput;
         end
         function nSignRestrictions = countSignRestrictions(obj)
-            restMat = obj.restMat ;
+            restMat = obj.getRestMat ;
             nSignRestrictions = sum(abs(restMat(:,3))); % number of sign restrictions
         end
         function nZeroRestrictions = countZeroRestrictions(obj)
-            restMat = obj.restMat;
+            restMat = obj.getRestMat;
             nZeroRestrictions = sum(restMat(:,3)==0);   % number of zero restrictions
         end
-        function nAcitiveSets = countActiveSets(obj,n)
+        function nAcitiveSets      = countActiveSets(obj,n)
             %% compute number of possible combinations of active sign restrictions
             nAcitiveSets = 1;
             nSignRestrictions = obj.countSignRestrictions;

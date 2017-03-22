@@ -49,18 +49,15 @@ classdef VecAR
     end
     %% ********************* Methods ***************************************
     methods
-        function obj = VecAR(label,nLags)
+        function obj = VecAR
             % This constructor opens a folder ./label/ and reads data
             % and identifying restrictions
             obj.config = configFile;
-            disp(['Initializing VAR model for ' label]);
-            if nargin<2
-                obj.nLags = 12 ;
-            else
-                obj.nLags = nLags ;
-            end
+            disp(['Initializing VAR model for ' obj.config.label]);
+            obj.nLags = obj.config.nLags ;
+            
             disp(['  VAR model has ' num2str(obj.nLags) ' lags.']);
-            obj = readTS(obj,label);   % read data
+            obj = obj.readTS(obj.config.dataFilename);   % read data
             
             % auxiliary matrix Vaux such that: vec(Sigma)=Vaux vech(Sigma)
             [obj.Vaux] = auxiliarymatrix(obj.n);
@@ -273,27 +270,26 @@ classdef VecAR
             end
             
         end
-        
+        function obj = readTS(obj,dataFilename) % used in  VecAR constructor
+            %% this function reads data and labels from a data.csv file in the label folder
+
+            %% read data
+            obj.data  = csvread(dataFilename,1);
+            [obj.T,obj.n] = size( obj.data);
+            %% read names of time series in a cell array
+            fid       = fopen(dataFilename);
+            obj.names = textscan(fid,[repmat('%[^,],',1,obj.n-1) '%[^,\r\n]'], 1);
+            fclose(fid);
+            disp('  Data read is succefull.')   ;  % todo: handle exceptions
+            
+        end
         
     end
     
 end
 
 
-function obj = readTS(obj,label) % used in  VecAR constructor
-%% this function reads data and labels from a data.csv file in the label folder
 
-%  todo: make filepath an argument
-%% read data
-obj.data  = csvread([label filesep 'data.csv'],1);
-[obj.T,obj.n] = size( obj.data);
-%% read names of time series in a cell array
-fid       = fopen([label filesep 'data.csv']);
-obj.names = textscan(fid,[repmat('%[^,],',1,obj.n-1) '%[^,\r\n]'], 1);
-fclose(fid);
-disp('  Data read is succefull.')   ;  % todo: handle exceptions
-
-end
 function [theta,d] = ALSigma2Theta(AL,Sigma,p,n)
 %% this funciton computes the vector of the reduced form parameters, theta vector
 

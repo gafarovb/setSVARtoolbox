@@ -28,13 +28,13 @@ classdef SVAR < VecAR
     %% *****************************************************************
     
     methods
-        function obj = SVAR(label,nLags)
+        function obj = SVAR
             %  INPUTS:
             %  label is the name of the model
             %  nLags is the number of lags in the model
-            obj@VecAR(label,nLags); % create a reduced form VAR model
-            obj.label = label;
-            obj.ID = restrictions(label); % read restrictions from a file
+            obj@VecAR; % create a reduced form VAR model
+            obj.label = obj.config.label;
+            obj.ID = IDrestrictions( obj.config.restricitonsFilename); % read restrictions from a file
             obj = obj.separateSandZ;             % creates a specificaiton structure to characterize the restrictions
         end
         
@@ -85,9 +85,9 @@ classdef SVAR < VecAR
             %% Simple or cumulative IRF
             switch (obj.cum)
                 case 'cum'
-                    reducedIRF = obj.Ccum;
+                    reducedFormIRF = obj.Ccum;
                 otherwise
-                    reducedIRF = obj.C;
+                    reducedFormIRF = obj.C;
             end;
             
             %% interface
@@ -95,13 +95,13 @@ classdef SVAR < VecAR
             ZR   = obj.ZR;
             SR   = obj.SR;
             
-            nShocks = size(reducedIRF,1);                %Gives the dimension of the VAR
-            hori = size(reducedIRF,2)/nShocks;           %Gives the horizon of IRFs
+            nShocks = size(reducedFormIRF,1);                %Gives the dimension of the VAR
+            hori = size(reducedFormIRF,2)/nShocks;           %Gives the horizon of IRFs
             largeNum = obj.config.largeNumber * minInd;
             smallNum = obj.config.smallNumber;
-            reducedIRF = [eye(nShocks),reducedIRF];
+            reducedFormIRF = [eye(nShocks),reducedFormIRF];
             nComb = obj.ID.countActiveSets(nShocks);
-            reducedIRFaux = reshape(reducedIRF,[nShocks,nShocks,(hori+1)]);
+            reducedIRFaux = reshape(reducedFormIRF,[nShocks,nShocks,(hori+1)]);
             sigmaSqrt = (Sigma)^(1/2);    %Sigma^(1/2) is the symmetric sqrt of Sigma.
             
             
@@ -290,7 +290,7 @@ classdef SVAR < VecAR
             
             
             %% interface
-            restMat = obj.ID.restMat;
+            restMat = obj.ID.getRestMat;
             nSignRestrictions = countSignRestrictions(obj.ID);
             nZeroRestrictions = countZeroRestrictions(obj.ID);
             obj.ID = constructSelectors( obj.ID,obj.n);
@@ -346,7 +346,7 @@ classdef SVAR < VecAR
                 'maskColMin',obj.ID.maskColMin,...    % IRF to skip
                 'FiqMax', obj.ID.negativeSR,...   % matrix with indexed negative sign restrictions
                 'FiqMin', obj.ID.positiveSR,...   % matrix with indexed positive sign restrictions
-                'restMat',obj.ID.restMat);   % input restriction matrix
+                'restMat',obj.ID.getRestMat);   % input restriction matrix
         end
         function IRFcol     = onesidedIRFCSAnalytic(obj,minmax,level)
             
@@ -484,7 +484,7 @@ function IRF = enforceIRFRestrictions(SVARobj,IRF)
 
 %% read variables from the input objects
 nShocks = SVARobj.n;
-restMat = SVARobj.ID.restMat;
+restMat = SVARobj.ID.getRestMat;
 nRestrictions = size(restMat,1);
 MaxHorizons = SVARobj.config.MaxHorizons;
 

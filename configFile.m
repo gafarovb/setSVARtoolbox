@@ -3,6 +3,11 @@ classdef configFile < handle
     %   Detailed explanation goes here
     
     properties (Access = public,Constant )
+        %% read specification
+        restricitonsFilename = ['MSG' filesep 'restMat.dat'];
+        dataFilename = ['MSG' filesep 'data.csv'];
+        label = 'MSG';
+        nLags = 12;
         %% reduced var
         MaxHorizons = 23;      % the number of horizons to compute the IRF
         scedasticity = 'homo';      % 'homo' = homoscedastic Omega, 'hetero' = heteroscedastic Omega
@@ -35,7 +40,10 @@ classdef configFile < handle
         mineig = 0.001; % lower bound on smallest eigenvalue of sigma
         maxmod = 0.990; % upper bound on largest modulus of eigenvalue of companion matrix of A
         
+        
+        
+        
     end
-    
+
 end
 
