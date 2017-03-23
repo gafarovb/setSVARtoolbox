@@ -1,53 +1,28 @@
-classdef estimatedVecAR 
+classdef estimatedVecAR < VecAR
     %VecAR is a class for a time series collection
     %   Detailed explanation goes here
 
     %%
     properties (Access = private)
-        %% seeds for random numbers
         seedMC = NaN; % seedMC: seed for a given MC sample. Use NaN for original dataset
-        %% Data
         dataSample;
     end
-    %%
+    
     properties (SetAccess = protected)   
-        config; % object of configFile class
-         %% model characteristics
+        config ;     % object of configFile class
         nLags = 0 ;  %% The number "p" of lags in the SVAR model
-        T = 0 ;       % Number of time periods
-%         d = 0 ;          % Length of vector of reduced-form parameters
         estimates;
-
-%         %% Variance
-%         Omega;      % asymptotic covariance matrix for reduced form coefficients
-%         Omegainv;   % Block inverse of Omega (assumes homoskedasticity)
-        %% Estimates of IRF
-        C;           % C is the estimated reduced form VMA representation, a long matrix (n  x n(MaxHorizons+1) )
-        Ccum;        % Ccum is the estimated cumulative VMA representation, a long matrix (n  x n(MaxHorizons+1) )
         %% todo : check if these properties are necessary
-        %% Auxilary properties
-        G;          % Derivatives of C wrt AL.
-        Gcum;       %  Derivatives of Ccum wrt AL.
         bootCSigma; % Bootstrap after boostrap samples of of C wrt AL.
     end
-    %% ********************* Methods ***************************************
+    
+    
     methods
-        function obj = VecAR
-
+        function obj = estimatedVecAR
             obj.config = configFile;
             obj.nLags = obj.config.nLags ;
             obj.dataSample = multivariateTimeSeries;  
             obj.estimates = LSestimatesVAR( obj.dataSample, obj.nLags);
-%             obj = computeCovariance(obj);
-%             obj = VMArepresentationAndDerivatives(obj);            
-            
-        end
-
-        function obj = VMArepresentationAndDerivatives(obj)
-            %% VMA coefficients
-            [obj.C,obj.Ccum] = computeVMArepresentation(obj.AL,obj.nLags,obj.config.MaxHorizons);
-            %% G matrix: derivative of vec(C) wrt vec(AL)
-            [obj.G,obj.Gcum] = computeG_VMAderivatives(obj.AL,obj.C,obj.nLags,obj.config.MaxHorizons,obj.getN);
         end
         function obj = eraseData(obj)
             % this method erases information about the sample but leaves
@@ -61,7 +36,7 @@ classdef estimatedVecAR
             % -------------------------------------------------------------------------
             % Checks whether reduced-form VAR model is covariance stationary
             % -------------------------------------------------------------------------
-            stationarity(obj.AL,obj.nLags,obj.getN)
+            VecAR.stationarity(obj.estimates.getAL)
         end
         function obj = bab(obj)
             % -------------------------------------------------------------------------
@@ -251,172 +226,3 @@ end
 
 
 
-%% functions from folder funcRForm
-
-function [C,Ccum] = computeVMArepresentation(AL,p,hori)
-% -------------------------------------------------------------------------
-% Transforms the A(L) parameters of a reduced-form VAR
-% into the coefficients C of the MA representation.
-%
-% Inputs:
-% - AL: VAR model coefficients
-% - p: number of lags in the VAR model
-% - hori: forecast horizon
-% Outputs:
-% - C: MA representation coefficients
-%
-% This version: March 31, 2015
-% -------------------------------------------------------------------------
-
-
-%% Reshape AL into a 3-D array
-n = size(AL,1);
-vecAL = reshape(AL,[n,n,p]);
-
-%% Initialize the value of the auxiliary array vecALrevT
-vecALrevT = zeros(n,n,hori);
-for i=1:hori
-    if i<(hori-p)+1
-        vecALrevT(:,:,i) = zeros(n,n);
-    else
-        vecALrevT(:,:,i) = vecAL(:,:,(hori-i)+1)';
-    end
-end
-vecALrevT = reshape(vecALrevT,[n,n*hori]);
-
-
-%% MA coefficients
-C = repmat(vecAL(:,:,1),[1,hori]);
-for i=1:hori-1
-    C(:,(n*i)+1:(n*(i+1))) = [eye(n),C(:,1:n*i)] * vecALrevT(:,(hori*n-(n*(i+1)))+1:end)';
-end
-
-
-%% cumulative MA coefficients
-Ctmp = [eye(n), C];
-Chataux = cumsum(reshape(Ctmp,[n,n,(hori+1)]),3);
-Ccum = reshape(Chataux,[n,n*(hori+1)]);
-Ccum = Ccum(:,(n+1):end);
-
-end
-function [G,Gcum] = computeG_VMAderivatives(AL,C,p,hori,n)
-% -------------------------------------------------------------------------
-% Computes the derivatives of vec(C) wrt vec(A) based on
-% Lütkepohl H. New introduction to multiple time series analysis. ? Springer, 2007.
-%
-% Inputs:
-% - AL: VAR model coefficients
-% - C: MA representation coefficients
-% - p: lag order
-% - hori: forecast horizon
-% - n: number of variables
-% Outputs:
-% - G: derivatives of C wrt A
-%
-% This version: March 31, 2015
-% -------------------------------------------------------------------------
-
-
-%% A and J matrices in Lutkepohl's formula for the derivative of C with respect to A
-J = [eye(n), zeros(n,(p-1)*n)];
-Alut = [AL; eye(n*(p-1)),zeros(n*(p-1),n)];
-
-
-%% AJ is a 3D array that contains A^(k-1) J' in the kth 2D page of the the 3D array
-AJ = zeros(n*p, n, hori);
-for k=1:hori
-    AJ(:,:,k) = ((Alut)^(k-1)) * J';
-end
-
-%% matrix [ JA'^0; JA'^1; ... J'A^{k-1} ];
-JAp = reshape(AJ, [n*p,n*hori])';
-
-
-%% G matrices
-AJaux = zeros(size(JAp,1)*n, size(JAp,2)*n, hori);
-Caux = reshape([eye(n), C(:,1:(hori-1)*n)], [n,n,hori]);
-for i=1:hori
-    AJaux(((n^2)*(i-1))+1:end,:,i) = kron(JAp(1:n*(hori+1-i),:), Caux(:,:,i));
-end
-Gaux = permute(reshape(sum(AJaux,3)', [(n^2)*p, n^2, hori]), [2,1,3]);
-G = zeros(size(Gaux,1), size(Gaux,2), size(Gaux,3)+1);
-G(:,:,2:end) = Gaux;
-
-
-%% Cumulative version of G matrices
-Gcum = cumsum(G,3);
-
-
-end
-function simVAR   = simulateVAR(AL,T,nMC,etahat)
-% -------------------------------------------------------------------------
-% This function simulate nMC samples of length T based on VAR model with lag polynomial AL
-% and covariance matrix Sigma
-%
-% Inputs:
-% - AL: VAR model coefficients
-% - T: timer series length
-% - nMC: number of bootstrap samples
-% - eta: VAR model residuals
-% Outputs:
-% - simVAR: (T x n x nMC) 3d array of simulated data
-%
-% This version: February 24, 2015
-% -------------------------------------------------------------------------
-
-% To do list
-% - use MA representation to vectorize the simulation for better speed
-
-[n,np] = size(AL);
-lags = np/n;
-burnIn = 1000;
-etahat =  etahat -mean(etahat,2)* ones( 1, T-lags) ;
-
-eta = etahat( randi([1,(T-lags)],nMC*T+burnIn,n) );
-TSLtemp =  zeros( nMC * T + burnIn, n);
-for iT = ( lags+1):( nMC * T + burnIn)
-    TSLtemp(iT,:) =  ( AL * reshape( (TSLtemp((iT-1):-1:(iT- lags),:))',[ n *  lags,1]) )' + eta(iT,:);
-end
-
-simVAR = permute ( reshape(TSLtemp((burnIn+1):( nMC* T+burnIn),:),[ T ,  nMC ,  n ]),   [1 3 2]);
-
-end
-function stationarity(AL,p,n)
-% -------------------------------------------------------------------------
-% Checks whether reduced-form VAR model is covariance stationary
-%
-% Inputs:
-% - AL: VAR model coefficients
-% - p: number of lags in the VAR model
-% - n: length of time series dimension
-% Outputs: (none)
-%
-% This version: March 31, 2015
-% -------------------------------------------------------------------------
-
-
-%% Definitions
-A = [AL; eye(n*(p-1)),zeros(n*(p-1),n)];
-
-
-%% Eigenvalues
-e = eigs(A,size(A,1)-2);
-r = real(e);
-i = imag(e);
-dd = sqrt(r.^2+i.^2);
-
-
-if max(dd)>=1;
-    disp('Warning: VAR model is not covariance stationary!');
-else
-    disp('VAR model is covariance stationary');
-end
-
-
-end
-
-%********************************************************
-%********************************************************
-%********************************************************
-%********************************************************
-%********************************************************
