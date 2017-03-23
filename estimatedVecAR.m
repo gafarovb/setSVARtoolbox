@@ -1,41 +1,26 @@
-classdef VecAR
+classdef estimatedVecAR 
     %VecAR is a class for a time series collection
     %   Detailed explanation goes here
-    
-    properties (Access = public)
-        names = []; %% Labels for TS
-    end
-    properties (Access = protected)      
-        
-    end
-    
+
     %%
     properties (Access = private)
         %% seeds for random numbers
         seedMC = NaN; % seedMC: seed for a given MC sample. Use NaN for original dataset
         %% Data
-        X;           % Regressors
-        Y;           % Regressand
+        dataSample;
     end
     %%
-    properties (SetAccess = protected)  %fixme
+    properties (SetAccess = protected)   
         config; % object of configFile class
-        %%  Data
-        data = [] ;
-        %% model characteristics
+         %% model characteristics
         nLags = 0 ;  %% The number "p" of lags in the SVAR model
-        n = 0 ;       % Number of Time series/dimension of shocks
         T = 0 ;       % Number of time periods
-        d = 0 ;          % Length of vector of reduced-form parameters
-        %% Estimates of VAR parameters (theta)
-        AL;          % AL is the estimated lag polynomial
-        A0;          % A0 is the estimated constant
-        Sigma;       % Sigma is the estimated covariance matrix
-        theta;       % Vector of reduced-form parameters
-        etahat;      % estimated residuals/forecast errors
-        %% Variance
-        Omega;      % asymptotic covariance matrix for reduced form coefficients
-        Omegainv;   % Block inverse of Omega (assumes homoskedasticity)
+%         d = 0 ;          % Length of vector of reduced-form parameters
+        estimates;
+
+%         %% Variance
+%         Omega;      % asymptotic covariance matrix for reduced form coefficients
+%         Omegainv;   % Block inverse of Omega (assumes homoskedasticity)
         %% Estimates of IRF
         C;           % C is the estimated reduced form VMA representation, a long matrix (n  x n(MaxHorizons+1) )
         Ccum;        % Ccum is the estimated cumulative VMA representation, a long matrix (n  x n(MaxHorizons+1) )
@@ -43,50 +28,31 @@ classdef VecAR
         %% Auxilary properties
         G;          % Derivatives of C wrt AL.
         Gcum;       %  Derivatives of Ccum wrt AL.
-        Vaux;       % auxiliary matrix Vaux such that vec(Sigma)=Vaux vech(Sigma);
-        Vaux2;      % auxiliary matrix Vaux2 such that vech(Sigma)=Vaux2 vec(Sigma);
         bootCSigma; % Bootstrap after boostrap samples of of C wrt AL.
     end
     %% ********************* Methods ***************************************
     methods
         function obj = VecAR
-            % This constructor opens a folder ./label/ and reads data
-            % and identifying restrictions
+
             obj.config = configFile;
-            disp(['Initializing VAR model for ' obj.config.label]);
             obj.nLags = obj.config.nLags ;
-            
-            disp(['  VAR model has ' num2str(obj.nLags) ' lags.']);
-            obj = obj.readTS(obj.config.dataFilename);   % read data
-            
-            % auxiliary matrix Vaux such that: vec(Sigma)=Vaux vech(Sigma)
-            [obj.Vaux] = auxiliarymatrix(obj.n);
-            disp('Initialization of the VAR model is done.');
-            % compute LS estimates VAR
-            [obj.AL,obj.Sigma,obj.etahat,obj.X,obj.Y,obj.A0] = LS_VAR(obj.data,obj.nLags);
-            [obj.theta,obj.d] = ALSigma2Theta(obj.AL,obj.Sigma,obj.nLags,obj.n);
-            disp('  LS estimates of VAR model are computed successfully.');
-            obj = computeCovariance(obj);
-            obj = VMArepresentation(obj);
-            disp('  VMA coefficients are computed successfully.')
-            disp('  Derivatives of VMA coefficients w.r.t vec(A) are computed successfully.')
-            
+            obj.dataSample = multivariateTimeSeries;  
+            obj.estimates = LSestimatesVAR( obj.dataSample, obj.nLags);
+%             obj = computeCovariance(obj);
+%             obj = VMArepresentationAndDerivatives(obj);            
             
         end
-        function obj = computeCovariance(obj)
-           %% Asymptotic covariance matrix for reduced form coefficients
-            [obj.Omega,obj.Omegainv] = CovAhat_Sigmahat(obj.nLags,obj.X,obj.etahat,obj.Vaux,obj.config.scedasticity);
-        end   
-        function obj = VMArepresentation(obj)
+
+        function obj = VMArepresentationAndDerivatives(obj)
             %% VMA coefficients
-            [obj.C,obj.Ccum] = MARep(obj.AL,obj.nLags,obj.config.MaxHorizons);
+            [obj.C,obj.Ccum] = computeVMArepresentation(obj.AL,obj.nLags,obj.config.MaxHorizons);
             %% G matrix: derivative of vec(C) wrt vec(AL)
-            [obj.G,obj.Gcum] = Gmatrices(obj.AL,obj.C,obj.nLags,obj.config.MaxHorizons,obj.n);
+            [obj.G,obj.Gcum] = computeG_VMAderivatives(obj.AL,obj.C,obj.nLags,obj.config.MaxHorizons,obj.getN);
         end
         function obj = eraseData(obj)
             % this method erases information about the sample but leaves
             % the dimensions of the data intact
-            obj.data = obj.data * NaN;
+            obj.tsInColumns = obj.tsInColumns * NaN;
             obj.etahat = obj.etahat * NaN;
             obj.X =  obj.X * NaN;
             obj.Y =  obj.Y * NaN;
@@ -95,7 +61,7 @@ classdef VecAR
             % -------------------------------------------------------------------------
             % Checks whether reduced-form VAR model is covariance stationary
             % -------------------------------------------------------------------------
-            stationarity(obj.AL,obj.nLags,obj.n)
+            stationarity(obj.AL,obj.nLags,obj.getN)
         end
         function obj = bab(obj)
             % -------------------------------------------------------------------------
@@ -103,7 +69,7 @@ classdef VecAR
             % See Kilian (1998) ReStat
             %
             % Inputs:
-            % - obj.data  = series: matrix of dimension (T times n) containing the time series
+            % - obj.tsInColumns  = series: matrix of dimension (T times n) containing the time series
             % - obj.nLags = p: model lag order
             % - obj.config.MaxHorizons = hori: model horizon
             % - obj.config.babn1 = n1: number of bootstrap samples before bias correction
@@ -117,7 +83,7 @@ classdef VecAR
             
             
             %%  read inputs from the VecAR object
-            series = obj.data;
+            series = obj.tsInColumns;
             p      = obj.nLags;
             hori   = obj.config.MaxHorizons ;
             n1 = obj.config.babn1;
@@ -136,7 +102,7 @@ classdef VecAR
             for iMC = 1:n1
                 seriesMC = simVAR(:,:,iMC);
                 seriesMC = seriesMC - ones(T,1)* mean(seriesMC);
-                [ALar(:,:,iMC),sigmaAr(:,:,iMC),~] = LS_VAR(seriesMC,p);
+                [ALar(:,:,iMC),sigmaAr(:,:,iMC),~] = computeLSestimatesOfVAR(seriesMC,p);
                 % stationarity checks
                 stationarity(ALar(:,:,iMC),p,n)
             end
@@ -183,8 +149,8 @@ classdef VecAR
             for iMC = 1:n2
                 seriesMC = simVAR(:,:,iMC);
                 seriesMC = seriesMC - ones(T,1)* mean(seriesMC);
-                [ALar(:,:,iMC),sigmaAr(:,:,iMC),~] = LS_VAR(seriesMC,p);
-                [CAr(:,:,iMC)]=MARep(ALar(:,:,iMC),p,hori);
+                [ALar(:,:,iMC),sigmaAr(:,:,iMC),~] = computeLSestimatesOfVAR(seriesMC,p);
+                [CAr(:,:,iMC)]=computeVMArepresentation(ALar(:,:,iMC),p,hori);
                 Ctmp = [eye(n),CAr(:,:,iMC)];
                 Chataux = cumsum(reshape(Ctmp,[n,n,(hori+1)]),3);
                 Ccum = reshape(Chataux,[n,n*(hori+1)]);
@@ -215,7 +181,7 @@ classdef VecAR
             % Please, cite Gafarov, B. and Montiel-Olea, J.L. (2015)
             % "ON THE MAXIMUM AND MINIMUM RESPONSE TO AN IMPULSE IN SVARS"
             % -------------------------------------------------------------------------
-            series= obj.data;
+            series= obj.tsInColumns;
             pmax = 24; % - pmax: maximum possible number of lags
             
             %% Definitions
@@ -232,7 +198,7 @@ classdef VecAR
             for px = 1:pmax
                 series_ = series(pmax-px+1:end,:);
                 %     series_ = series;
-                [~,~,eta,~] = LS_VAR(series_,px); %Apply the function RForm_VAR.m to estimate reduced form parameters
+                [~,~,eta,~] = computeLSestimatesOfVAR(series_,px); %Apply the function RForm_VAR.m to estimate reduced form parameters
                 lhd = log(det((eta*eta')/T));
                 pty = px*N^2/T;
                 aic(px)  = lhd + 2*pty;
@@ -260,8 +226,8 @@ classdef VecAR
                 errors = randn(objSimulated.d,1);
                 
                 objSimulated.theta  =  obj.theta+((obj.Omega)^(1/2)/(obj.T^.5))*errors;
-                objSimulated.AL     = reshape(objSimulated.theta(1:(obj.n^2)*obj.nLags),[obj.n,obj.n*obj.nLags]);
-                objSimulated.Sigma  = reshape(obj.Vaux*objSimulated.theta((obj.n^2)*obj.nLags+1:end,1),[obj.n,obj.n]);
+                objSimulated.AL     = reshape(objSimulated.theta(1:(obj.getN^2)*obj.nLags),[obj.getN,obj.getN*obj.nLags]);
+                objSimulated.Sigma  = reshape(obj.vecFromVech*objSimulated.theta((obj.getN^2)*obj.nLags+1:end,1),[obj.getN,obj.getN]);
                 
                 objSimulated = VMArepresentation(objSimulated);
                 
@@ -270,124 +236,24 @@ classdef VecAR
             end
             
         end
-        function obj = readTS(obj,dataFilename) % used in  VecAR constructor
-            %% this function reads data and labels from a data.csv file in the label folder
-
-            %% read data
-            obj.data  = csvread(dataFilename,1);
-            [obj.T,obj.n] = size( obj.data);
-            %% read names of time series in a cell array
-            fid       = fopen(dataFilename);
-            obj.names = textscan(fid,[repmat('%[^,],',1,obj.n-1) '%[^,\r\n]'], 1);
-            fclose(fid);
-            disp('  Data read is succefull.')   ;  % todo: handle exceptions
-            
+        function n = getN(obj)
+            n = obj.dataSample.countTS;
         end
-        
+        function d = countParameters(obj)
+            n = obj.getN ;
+            p = obj.nLags;
+            d = n * n * p + n * (n+1) / 2;   
+        end
     end
     
 end
 
 
 
-function [theta,d] = ALSigma2Theta(AL,Sigma,p,n)
-%% this funciton computes the vector of the reduced form parameters, theta vector
-
-Ident = eye(n);
-Vaux2 = kron(Ident(1,:),Ident);
-for i=2:n
-    Vaux2 = [Vaux2; kron(Ident(i,:),Ident(i:end,:))];
-end
-vecAL = reshape(AL,[(n^2)*p,1]);
-vechSigma = Vaux2*reshape(Sigma,[n^2,1]);
-theta = [vecAL; vechSigma];
-d = length(theta);
-end
-
 
 %% functions from folder funcRForm
 
-function [AL,Sigma,eta,X,Y,A0] = LS_VAR(TSL,p)
-% -------------------------------------------------------------------------
-% LS_VAR provides  OLS estimators of a VAR(p) model
-% The estimation always includes a constant
-%
-% Former name RForm_VAR
-%
-%
-% Inputs:
-% - TSL: matrix of dimension (T times n) containing the time series
-% - p: number of lags in the VAR model
-% Outputs:
-% - AL: VAR model coefficients
-% - Sigma: covariance matrix of VAR model residuals
-% - eta: VAR model residuals
-% - X: VAR model regressors
-%
-% This version: May 4th, 2015
-% Last edited by José-Luis Montiel-Olea
-%
-% -------------------------------------------------------------------------
-
-
-%% Definitions
-aux = lagmatrix(TSL,1:1:p);
-Y = TSL((p+1):end,:); %The rows of this matrix are Y_t'
-X = [ones(size(Y,1),1),aux((p+1):end,:)]; clear aux   %The rows of this matrix are [1,X_{t}'] in p.6
-
-
-%% Generate the vec(A(L)) estimators
-slopeparameters = (Y'*X)*((X'*X)^(-1)); %contains the nx1 constant vector and AL
-AL = slopeparameters(:,2:end); %n x np
-A0 = slopeparameters(:,1);     %n x 1
-
-
-%% Covariance matrix
-eta = Y'-slopeparameters*(X');
-Sigma = (eta*eta')/(size(eta,2));
-
-
-end
-function [Vaux] = auxiliarymatrix(n)
-% -------------------------------------------------------------------------
-% computes the auxiliary matrix Vaux such that: vec(Sigma)=Vaux vech(Sigma)
-%
-% Inputs:
-% - n: number of variables
-% Outputs:
-% - Vaux: auxiliary matrix
-%
-% This version: February 24, 2015
-% -------------------------------------------------------------------------
-
-Aux = eye(n);
-last = zeros(n^2,1); last(n^2,1)=1;
-V(1).V = last;
-for j=2:n
-    A = eye(j);
-    if j<n
-        B = [zeros( n*(n-j)+n-j, j);eye(j)];
-        for m=2:j
-            B = [B; kron(Aux(:,n-j+1),A(m,:))];
-        end
-        clear A;
-        V(j).V = [B,V(j-1).V];
-        clear B
-    else
-        B = eye(j);
-        for m=2:j
-            B = [B;kron(Aux(:,n-j+1),A(m,:))];
-        end
-        clear A;
-        V(j).V = [B,V(j-1).V];
-        clear B
-    end
-end
-Vaux = V(n).V;
-disp('  Vaux is computed: vec(Sigma)=Vaux vech(Sigma).');
-
-end
-function [C,Ccum] = MARep(AL,p,hori)
+function [C,Ccum] = computeVMArepresentation(AL,p,hori)
 % -------------------------------------------------------------------------
 % Transforms the A(L) parameters of a reduced-form VAR
 % into the coefficients C of the MA representation.
@@ -433,112 +299,7 @@ Ccum = reshape(Chataux,[n,n*(hori+1)]);
 Ccum = Ccum(:,(n+1):end);
 
 end
-function [OmegaHat,OmegaHatinv] = CovAhat_Sigmahat(p,X,eta,Vaux,scedasticity)
-% -------------------------------------------------------------------------
-% Computes the asymptotic variance of [vec(Ahat)',vech(Sigmahat)']'
-% Please, refer to  Lütkepohl H. New introduction to multiple time series analysis. ? Springer, 2007.
-%
-% Inputs:
-% - p: lag order
-% - Sigma: covariance matrix of residuals
-% - Y: matrix of dimension (T times n) containing the time series
-% - eta: reduced-form residuals
-% Outputs:
-% - OmegaHat: asymptotic variance of [vec(Ahat)',vech(Sigmahat)']'
-%
-% This version: March 21, 2017
-% Last edited by Bulat Gafarov
-% -------------------------------------------------------------------------
-
-
-%% suppress default warning for near singularity
-warning('off','MATLAB:nearlySingularMatrix')
-
-
-
-switch scedasticity
-    case 'homo'
-        
-        %% Definitions
-        n = size(eta,1);
-        XSVARp = X(:,2:end);
-        T1aux = size(eta,2); %This is the number of time periods
-        Sigmau = (eta*eta')/(size(eta,2));
-        Gamma = XSVARp'*XSVARp/T1aux;
-        DK = Vaux;     % duplication matrix such that vec(Sigma)=D*vech(Sigma)
-        DKplus = (DK'*DK)\DK';
-        
-        
-        %% Construct Sigma_a (p.118 in Luetkepohl, 1990)
-        Sigmaa = kron(Gamma\eye(size(Gamma)),Sigmau);
-        na = size(Sigmaa,1);
-        
-        
-        %% Construct Sigma_s (p.118 in Luetkepohl, 1990)
-        Sigmas = 2*DKplus*kron(Sigmau,Sigmau)*DKplus';
-        ns = size(Sigmas,1);
-        
-        
-        %% Omega
-        OmegaHat = [Sigmaa, zeros(na,ns); zeros(ns,na), Sigmas];
-        OmegaHatinv = OmegaHat\eye(size(OmegaHat));
-        
-        
-    case 'hetero'
-        
-        %% Definitions
-        n = size(eta,1);
-        XSVARp = X;
-        matagg = [XSVARp,eta']'; %The columns of this vector are (1;X_t; eta_t)
-        T1aux = size(eta,2);    %This is the number of time periods
-        T2aux = size(matagg,1); %This is the column dimension of (1;X_t;eta_t)
-        
-        
-        %%
-        etaaux = reshape(eta,[n,1,T1aux]); %Each 2-D page contains eta_t
-        mataggaux = permute(reshape(matagg,[T2aux,1,T1aux]),[2,1,3]); %Each 2-D page contains (1,X_t',\eta_t')
-        auxeta = bsxfun(@plus,bsxfun(@times,etaaux,mataggaux),-mean(bsxfun(@times,etaaux,mataggaux),3));
-        %Each 2-D page contains [eta_t, eta_t X_t', eta_t eta_t'-Sigma];
-        vecAss1= reshape(auxeta,[n+(p*(n^2))+n^2,1,T1aux]);
-        %Each 2-D page contains [eta_t; vec(eta_tX_t') ; vec(eta_t*eta_t'-Sigma) ]
-        WhatAss1 = sum(bsxfun(@times,vecAss1,permute(vecAss1,[2,1,3])),3)./T1aux;
-        %This is the covariance matrix we are interested in
-        
-        
-        %% Construct the selector matrix VauxInverse that gives: vech(Sigma)=Vaux*vec(Sigma)
-        I = eye(n);
-        VauxInverse = kron(I(1,:),I);
-        for i=2:n
-            VauxInverse = [VauxInverse; kron(I(i,:),I(i:end,:))];
-        end
-        
-        
-        %% Check bad conditioning
-        test = n^2*p + n*(n+1)/2 < T1aux;
-        if false(test)
-            error('Warning: The covariance matrix is not invertible because n^2p+n(n+1)/2<T!')
-        end
-        
-        
-        %% This is the estimator for matrix W in Assumption 1
-        Mhat = [kron([zeros(n*p,1),eye(n*p)]*(XSVARp'*XSVARp./T1aux)^(-1),eye(n)), zeros((n^2)*p,n^2); ...
-            zeros(n*(n+1)/2,((n^2)*p)+n), VauxInverse];
-        OmegaHat = (Mhat)*(WhatAss1)*(Mhat');
-        OmegaHatinv = OmegaHat\eye(size(OmegaHat));
-    otherwise 
-            error('Warning: choose homo or heteorscedasticity option')
-end
-
-
-%% Warning for near-singularity
-test = rcond(OmegaHat);
-if test<eps
-    fprintf('... warning: OmegaHat covariance matrix is close to singular!\n')
-end
-warning('on')
-disp('  Asym. covariance for (AL,Sigma) is computed successfully.')
-end
-function [G,Gcum] = Gmatrices(AL,C,p,hori,n)
+function [G,Gcum] = computeG_VMAderivatives(AL,C,p,hori,n)
 % -------------------------------------------------------------------------
 % Computes the derivatives of vec(C) wrt vec(A) based on
 % Lütkepohl H. New introduction to multiple time series analysis. ? Springer, 2007.

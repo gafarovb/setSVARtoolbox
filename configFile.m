@@ -5,7 +5,7 @@ classdef configFile < handle
     properties (Access = public,Constant )
         %% read specification
         restricitonsFilename = ['MSG' filesep 'restMat.dat'];
-        dataFilename = ['MSG' filesep 'data.csv'];
+        dataFilenameCSV = ['MSG' filesep 'data.csv']; % T=165
         label = 'MSG';
         nLags = 12;
         %% reduced var
@@ -39,11 +39,25 @@ classdef configFile < handle
         level = 0.68; % confidence level of bounds on bounds
         mineig = 0.001; % lower bound on smallest eigenvalue of sigma
         maxmod = 0.990; % upper bound on largest modulus of eigenvalue of companion matrix of A
-        
-        
-        
+
         
     end
+    methods (Static)
+        function tsReadyForAnalysis = prepareRawData(rawTSinColumns)
+            tsReadyForAnalysis = MSG_demeanAndSumOfFirstAndFourthSeries(rawTSinColumns);
+        end
+    end
+        
 
 end
 
+
+function tsReadyForAnalysis  = MSG_demeanAndSumOfFirstAndFourthSeries(rawTSinColumns)
+    tsReadyForAnalysis = rawTSinColumns;
+    tsReadyForAnalysis(:,4) = tsReadyForAnalysis(:,4) + tsReadyForAnalysis(:,1);
+    tsReadyForAnalysis = demeanColumns(tsReadyForAnalysis);  
+end
+function columnsDemeaned = demeanColumns(columnsWithMeans)
+    T = size(columnsWithMeans,1);
+    columnsDemeaned = columnsWithMeans - ones(T,1)*mean(columnsWithMeans);  
+end

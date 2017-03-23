@@ -17,16 +17,14 @@ classdef SVAR < VecAR
     
     properties (Access = private)
         ID   =[] ; %% A class with restrictions
+        
+        
         SR  ; % matrix with sign restrictions
         ZR  ; % matrix with zero restrictions
         GSR ; % Derivatives of sign restricted IRF
         GZR ; % Derivatives of zero restricted IRF
     end
-    
-    %% *****************************************************************
-    %  *****************************************************************
-    %% *****************************************************************
-    
+        
     methods
         function obj = SVAR
             %  INPUTS:
@@ -41,7 +39,6 @@ classdef SVAR < VecAR
         %%
         function [IRFs,solution] = onesidedIRFHatAnalytic(obj,minmax)
             % todo: refactor this method
-            
             
             % -------------------------------------------------------------------------
             % Computes point estimates for lower/upper bounds on the structual IRFs
@@ -61,9 +58,6 @@ classdef SVAR < VecAR
             % This version: March 21, 2017
             % last edit : Bulat Gafarov
             % -------------------------------------------------------------------------
-            
-            
-            
             
             %% Read input structure
             % Min or max bounds
@@ -413,7 +407,7 @@ switch(cum)
 end;
 Sigma = SVARobj.Sigma;
 Omega = SVARobj.Omega;
-Vaux  = SVARobj.Vaux;
+vecFromVech  = SVARobj.vecFromVech;
 T     = SVARobj.T;
 d     = SVARobj.d;
 spec  = SVARobj.spec;
@@ -434,6 +428,8 @@ nComb = size(valAr,3);
 CV  =  zeros(n,hori+1);
 
 
+
+
 %% compute std errors using Delta method
 for m=1:n
     for t=1:hori+1
@@ -441,8 +437,8 @@ for m=1:n
         CVlong = zeros(nComb,1);
         
         for j=1:nComb
-            
-            H = Hin(:,m,t) ;
+            %% TODO
+            H = Hin(:,m,t) ; %%% THIS IS WRONG.
             B = Bound(m,t);
             
             %% compute adjustment for non-contemporaneous restrictions
@@ -458,7 +454,7 @@ for m=1:n
             
             %% gradient of parameter vector theta
             Grad = [kron(H',e(:,m)')*G(:,:,t)+adjustment,...
-                (B/2)*(kron(H'*sigmaInv, H'*sigmaInv))*Vaux];
+                (B/2)*(kron(H'*sigmaInv, H'*sigmaInv))*vecFromVech];
             
             %% gradient of argmax
             CVlong(j) = abs((Grad*Omega*Grad')^.5)/(T^.5);
