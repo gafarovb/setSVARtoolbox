@@ -1,7 +1,10 @@
 classdef VecAR
     %VECAR Summary of this class goes here
     %   Detailed explanation goes here
-
+    properties (Access = protected)
+        nLags = [] ;  %% The number "p" of lags in the SVAR model
+        config;     % handle to an object of configFile class
+    end
     methods (Access = public, Static)
         function theta = thetaFromALSigma(AL_n_x_np,Sigma)
             %% this funciton computes the vector of the reduced form parameters, theta vector
@@ -113,6 +116,32 @@ classdef VecAR
             n_x_p = size(AL_n_x_np, 2);
             p = n_x_p / n;
         end
+        function stationarity(AL)
+            % -------------------------------------------------------------------------
+            % Checks whether reduced-form VAR model is covariance stationary
+            %
+            % Inputs:
+            % - AL: VAR model coefficients
+            % Outputs: (none)
+            %
+            % This version: March 31, 2015
+            % -------------------------------------------------------------------------
+            [n,p] = VecAR.getNPfromAL(AL);
+            A = [ AL; eye( n*(p-1) ), zeros( n*(p-1), n)];
+            
+            eigenvaluesOfA = eigs(A, size(A,1)-2); % FIXME: WHY -2?
+            
+            if max(abs(eigenvaluesOfA))>= 1;
+                disp('Warning: VAR model is not covariance stationary!');
+            else
+                disp('VAR model is covariance stationary');
+            end
+            
+            
+        end
+        
+        
+        
         function simVAR   = simulateVAR(AL_n_x_np,T,nMC,etahat)
             % -------------------------------------------------------------------------
             % This function simulate nMC samples of length T based on VAR model with lag polynomial AL
@@ -146,40 +175,7 @@ classdef VecAR
             simVAR = permute ( reshape(TSLtemp((burnIn+1):( nMC* T+burnIn),:),[ T ,  nMC ,  n ]),   [1 3 2]);
             
         end
-        function stationarity(AL)
-            % -------------------------------------------------------------------------
-            % Checks whether reduced-form VAR model is covariance stationary
-            %
-            % Inputs:
-            % - AL: VAR model coefficients
-            % - p: number of lags in the VAR model
-            % - n: length of time series dimension
-            % Outputs: (none)
-            %
-            % This version: March 31, 2015
-            % -------------------------------------------------------------------------
-            
-            
-            %% Definitions
-            [n,p] = VecAR.getNPfromAL(AL);
-            A = [AL; eye(n*(p-1)),zeros(n*(p-1),n)];
-            
-            
-            %% Eigenvalues
-            e = eigs(A,size(A,1)-2);
-            r = real(e);
-            i = imag(e);
-            dd = sqrt(r.^2+i.^2);
-            
-            
-            if max(dd)>=1;
-                disp('Warning: VAR model is not covariance stationary!');
-            else
-                disp('VAR model is covariance stationary');
-            end
-            
-            
-        end
+
 
     end
     

@@ -1,4 +1,4 @@
-classdef SVAR < VecAR
+classdef SVAR < estimatedVecAR
     
     %%        SVAR class describes a set-identified SVAR model and offers tools
     %       to construct point estimates and conduct inteference on the impulse
@@ -10,15 +10,13 @@ classdef SVAR < VecAR
 
     
     properties (Access = public)
-        label = 'Unknown' ; %% Model label, e.g. MSG 
-        spec;      % intermediate computations based restrictions.
+        label = 'Unknown' ; % Model label, e.g. MSG 
+        spec ;      % intermediate computations based restrictions.
 
     end
     
     properties (Access = private)
-        ID   =[] ; %% A class with restrictions
-        
-        
+        ID   =[] ; %% An object with restrictions
         SR  ; % matrix with sign restrictions
         ZR  ; % matrix with zero restrictions
         GSR ; % Derivatives of sign restricted IRF
@@ -27,13 +25,11 @@ classdef SVAR < VecAR
         
     methods
         function obj = SVAR
-            %  INPUTS:
-            %  label is the name of the model
-            %  nLags is the number of lags in the model
-            obj@VecAR; % create a reduced form VAR model
+            obj@estimatedVecAR; % create a reduced form VAR model
             obj.label = obj.config.label;
             obj.ID = IDrestrictions( obj.config.restricitonsFilename); % read restrictions from a file
-            obj = obj.separateSandZ;             % creates a specificaiton structure to characterize the restrictions
+            
+  %          obj = obj.separateSandZ;             % creates a specificaiton structure to characterize the restrictions
         end
         
         %%
