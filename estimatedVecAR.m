@@ -54,6 +54,12 @@ classdef estimatedVecAR < VecAR
         function thetaHat = getTheta(obj)
             thetaHat = obj.estimates.getThetaHat;
         end
+        function VMA_ts_sh_ho = getVMA_ts_sh_ho(obj)
+            VMA_ts_sh_ho = obj.estimates.getVMA_ts_sh_ho;
+        end
+        function G = getVMADerivatives(obj)
+            G = obj.estimates.getVMADerivatives;
+        end
         function T = getT(obj)
             T = obj.dataSample.countTimePeriods;
         end

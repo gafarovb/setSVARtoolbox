@@ -44,8 +44,7 @@ classdef IRF
         function nHorizons = MaxHorizons(obj)
             nHorizons = size(obj.Val,2)-1;
         end
-        % plus
-        % < >
+ 
     end
     
 end

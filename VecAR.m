@@ -5,6 +5,21 @@ classdef VecAR
         nLags = [] ;  %% The number "p" of lags in the SVAR model
         config;     % handle to an object of configFile class
     end
+    
+    methods
+        function reducedFormIRF = getReducedFormIRF(obj)
+            switch (obj.config.cum)
+                case 'cum'
+                    reducedFormIRFnonCum = obj.getVMA_ts_sh_ho;
+                    reducedFormIRF = cumsum(reducedFormIRFnonCum,3);
+                otherwise
+                    reducedFormIRF = obj.getVMA_ts_sh_ho;
+            end;
+            
+        end
+    end
+    
+    
     methods (Access = public, Static)
         function theta = thetaFromALSigma(AL_n_x_np,Sigma)
             %% this funciton computes the vector of the reduced form parameters, theta vector
@@ -18,7 +33,7 @@ classdef VecAR
             
             theta = [vecAL; vechSigma];
         end
-        function [C,Ccum] = getVMAfromAL( AL_n_x_np, hori)
+        function VMA_ts_sh_ho  = getVMAfromAL( AL_n_x_np, hori)
             % -------------------------------------------------------------------------
             % Transforms the A(L) parameters of a reduced-form VAR
             % into the coefficients C of the MA representation.
@@ -54,16 +69,13 @@ classdef VecAR
             for i=1:hori-1
                 C(:,(n*i)+1:(n*(i+1))) = [eye(n),C(:,1:n*i)] * vecALrevT(:,(hori*n-(n*(i+1)))+1:end)';
             end
-            
+
             
             %% cumulative MA coefficients
-            Ctmp = [eye(n), C];
-            Chataux = cumsum(reshape(Ctmp,[n,n,(hori+1)]),3);
-            Ccum = reshape(Chataux,[n,n*(hori+1)]);
-            Ccum = Ccum(:,(n+1):end);
-            
+            VMA = [eye(n), C];
+            VMA_ts_sh_ho = reshape(VMA,[n,n,(hori+1)]);
         end
-        function [G,Gcum] = getVMAderivatives(AL_n_x_np, hori)
+        function G = getVMAderivatives(AL_n_x_np, hori)
             % -------------------------------------------------------------------------
             % Computes the derivatives of vec(C) wrt vec(A) based on
             % Lütkepohl H. New introduction to multiple time series analysis. ? Springer, 2007.
@@ -77,13 +89,12 @@ classdef VecAR
             % This version: March 23, 2015
             % -------------------------------------------------------------------------
             
-            [C,~] = VecAR.getVMAfromAL( AL_n_x_np, hori);
+            VMA_ts_sh_ho = VecAR.getVMAfromAL( AL_n_x_np, hori);
             [n,p] = VecAR.getNPfromAL( AL_n_x_np );
 
             %% A and J matrices in Lutkepohl's formula for the derivative of C with respect to A
             J = [eye(n), zeros(n,(p-1)*n)];
             Alutkepohl = [AL_n_x_np; eye(n*(p-1)),zeros(n*(p-1),n)];
-            
             
             %% AJ is a 3D array that contains A^(k-1) J' in the kth 2D page of the the 3D array
             AJ = zeros(n*p, n, hori);
@@ -93,22 +104,14 @@ classdef VecAR
             
             %% matrix [ JA'^0; JA'^1; ... J'A^{k-1} ];
             JAp = reshape(AJ, [n*p,n*hori])';
-            
-            
             %% G matrices
             AJaux = zeros(size(JAp,1)*n, size(JAp,2)*n, hori);
-            Caux = reshape([eye(n), C(:,1:(hori-1)*n)], [n,n,hori]);
             for i=1:hori
-                AJaux(((n^2)*(i-1))+1:end,:,i) = kron(JAp(1:n*(hori+1-i),:), Caux(:,:,i));
+                AJaux(((n^2)*(i-1))+1:end,:,i) = kron(JAp(1:n*(hori+1-i),:), VMA_ts_sh_ho(:,:,i));
             end
             Gaux = permute(reshape(sum(AJaux,3)', [(n^2)*p, n^2, hori]), [2,1,3]);
             G = zeros(size(Gaux,1), size(Gaux,2), size(Gaux,3)+1);
             G(:,:,2:end) = Gaux;
-            
-            
-            %% Cumulative version of G matrices
-            Gcum = cumsum(G,3);
-            
             
         end
         function [n,p] = getNPfromAL(AL_n_x_np)
@@ -140,42 +143,7 @@ classdef VecAR
             
         end
         
-        
-        
-        function simVAR   = simulateVAR(AL_n_x_np,T,nMC,etahat)
-            % -------------------------------------------------------------------------
-            % This function simulate nMC samples of length T based on VAR model with lag polynomial AL
-            % and covariance matrix Sigma
-            %
-            % Inputs:
-            % - AL: VAR model coefficients
-            % - T: timer series length
-            % - nMC: number of bootstrap samples
-            % - eta: VAR model residuals
-            % Outputs:
-            % - simVAR: (T x n x nMC) 3d array of simulated data
-            %
-            % This version: February 24, 2015
-            % -------------------------------------------------------------------------
-            
-            % To do list
-            % - use MA representation to vectorize the simulation for better speed
-            
-            [n,np] = size(AL_n_x_np);
-            lags = np/n;
-            burnIn = 1000;
-            etahat =  etahat -mean(etahat,2)* ones( 1, T-lags) ;
-            
-            eta = etahat( randi([1,(T-lags)],nMC*T+burnIn,n) );
-            TSLtemp =  zeros( nMC * T + burnIn, n);
-            for iT = ( lags+1):( nMC * T + burnIn)
-                TSLtemp(iT,:) =  ( AL_n_x_np * reshape( (TSLtemp((iT-1):-1:(iT- lags),:))',[ n *  lags,1]) )' + eta(iT,:);
-            end
-            
-            simVAR = permute ( reshape(TSLtemp((burnIn+1):( nMC* T+burnIn),:),[ T ,  nMC ,  n ]),   [1 3 2]);
-            
-        end
-
+     
 
     end
     

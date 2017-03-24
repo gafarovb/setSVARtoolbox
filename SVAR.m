@@ -1,4 +1,4 @@
-classdef SVAR < estimatedVecAR
+classdef SVAR < estimatedVecAR 
     
     %%        SVAR class describes a set-identified SVAR model and offers tools
     %       to construct point estimates and conduct inteference on the impulse
@@ -12,11 +12,11 @@ classdef SVAR < estimatedVecAR
     properties (Access = public)
         label = 'Unknown' ; % Model label, e.g. MSG 
         spec ;      % intermediate computations based restrictions.
+        ID   =[] ; %% An object with restrictions
 
     end
     
     properties (Access = private)
-        ID   =[] ; %% An object with restrictions
         SR  ; % matrix with sign restrictions
         ZR  ; % matrix with zero restrictions
         GSR ; % Derivatives of sign restricted IRF
@@ -29,7 +29,7 @@ classdef SVAR < estimatedVecAR
             obj.label = obj.config.label;
             obj.ID = IDrestrictions( obj.config.restricitonsFilename); % read restrictions from a file
             
-  %          obj = obj.separateSandZ;             % creates a specificaiton structure to characterize the restrictions
+%         obj = obj.separateSandZ;             % creates a specificaiton structure to characterize the restrictions
         end
         
         %%
@@ -72,26 +72,27 @@ classdef SVAR < estimatedVecAR
                     error('Choose min or max');
             end;
             
-            %% Simple or cumulative IRF
-            switch (obj.cum)
-                case 'cum'
-                    reducedFormIRF = obj.Ccum;
-                otherwise
-                    reducedFormIRF = obj.C;
-            end;
+
             
+            
+            
+            
+            
+            optimiaztionProblems = optimizationProblems( obj);
             %% interface
-            Sigma = obj.Sigma;
-            ZR   = obj.ZR;
-            SR   = obj.SR;
+            Sigma = obj.estimates.getSigma;
+
             
-            nShocks = size(reducedFormIRF,1);                %Gives the dimension of the VAR
-            hori = size(reducedFormIRF,2)/nShocks;           %Gives the horizon of IRFs
-            largeNum = obj.config.largeNumber * minInd;
+
+            signedLargeNum = obj.config.largeNumber * minInd;
             smallNum = obj.config.smallNumber;
-            reducedFormIRF = [eye(nShocks),reducedFormIRF];
+            
+
+            
+            reducedFormIRF = obj.getReducedFormIRF ;
+            nShocks = size(reducedFormIRF,1);                %Gives the dimension of the VAR
+            hori = size(reducedFormIRF,2)-1;           %Gives the horizon of IRFs
             nComb = obj.ID.countActiveSets(nShocks);
-            reducedIRFaux = reshape(reducedFormIRF,[nShocks,nShocks,(hori+1)]);
             sigmaSqrt = (Sigma)^(1/2);    %Sigma^(1/2) is the symmetric sqrt of Sigma.
             
             
@@ -105,13 +106,17 @@ classdef SVAR < estimatedVecAR
             
             
             %% initialize
-            BoundsArray = - largeNum * ones(nShocks,hori+1,nComb*2);
+            BoundsArray = - signedLargeNum * ones(nShocks,hori+1,nComb*2);
             HArray      = zeros(nShocks,nShocks,hori+1,nComb*2);
             valArray = zeros(nShocks,hori+1,nComb*2);
             
             
             
             %% loop through all possible cardinalities of subsets of active sign restrictions
+           
+                        ZR   = obj.ZR;
+            SR   = obj.SR;
+            
             iSubproblem = -1; % total index for all cardinalities of active sets
             for SRsubsetCardinality = 0:min(nSignRestrictions,nShocks-nZeroRestrictions-1)
                 %% count number of subsets with subsetCardinality elements
@@ -186,10 +191,10 @@ classdef SVAR < estimatedVecAR
                 for iHorizon=1:hori+1  % loop over IRF horizon
                     
                     %% bounds under active constraints
-                    Htmp = sigmaM*reducedIRFaux(:,:,iHorizon)';
+                    Htmp = sigmaM*reducedFormIRF(:,:,iHorizon)';
                     % Compute max value under active constraints
                     % - abs is used to avoid complex numbers with Imaginary part equal to Numerical zero
-                    boundtmp = abs((diag(reducedIRFaux(:,:,iHorizon) * Htmp)).^.5);
+                    boundtmp = abs((diag(reducedFormIRF(:,:,iHorizon) * Htmp)).^.5);
                     % Compute argmax under active constraints
                     %  - bsxfun divides by zeros without warning
                     Hlocal(:,:,iHorizon) = bsxfun(@rdivide,Htmp,boundtmp');
@@ -206,7 +211,7 @@ classdef SVAR < estimatedVecAR
                                 noSelfPenalty(bindingSR(iBindingSR,1)) = false; % this matrix helps to avoid "selfpenalization"
                             else
                                 columnWithOne = zeros(size(SR,1),1);
-                                columnWithOne(bindingSR(iBindingSR,4))=abs(largeNum);
+                                columnWithOne(bindingSR(iBindingSR,4))=abs(signedLargeNum);
                                 columnWithOne = columnWithOne(~activeSR,:);
                                 slackness(:,bindingSR(iBindingSR,1))= columnWithOne;
                             end
@@ -222,8 +227,8 @@ classdef SVAR < estimatedVecAR
                     
                     %% impose penalty for the violation of feasibility constraint
                     if ~isempty(inactZ)
-                        BoundLocal(:,iHorizon)    =   BoundLocal(:,iHorizon) - largeNum * boundsToPenalize;
-                        BoundLocalNeg(:,iHorizon) =BoundLocalNeg(:,iHorizon) - largeNum * boundsToPenalizeNeg;
+                        BoundLocal(:,iHorizon)    =   BoundLocal(:,iHorizon) - signedLargeNum * boundsToPenalize;
+                        BoundLocalNeg(:,iHorizon) =BoundLocalNeg(:,iHorizon) - signedLargeNum * boundsToPenalizeNeg;
                     end
                     
                 end
@@ -261,83 +266,7 @@ classdef SVAR < estimatedVecAR
         end
         
         
-        function obj = separateSandZ(obj)
-            %% -------------------------------------------------------------------------
-            % This function constructs separate matrices with sign and zero restrictions
-            %
-            % Inputs:
-            % - obj: SVAR object
-            %
-            % Outputs:
-            % - specification: structure containing all information from the
-            %                  restriction matrix
-            %
-            % This version: March 21th, 2017
-            % Last edited :  Bulat Gafarov
-            % -------------------------------------------------------------------------
-            
-            
-            
-            
-            %% interface
-            restMat = obj.ID.getRestMat;
-            nSignRestrictions = countSignRestrictions(obj.ID);
-            nZeroRestrictions = countZeroRestrictions(obj.ID);
-            obj.ID = constructSelectors( obj.ID,obj.n);
-            n = obj.n;
-            [nG,mG,MaxHorizons] = size(obj.G);
-            VMA    = reshape([eye(n),obj.C]   ,[n,n,MaxHorizons]);
-            VMAcum = reshape([eye(n),obj.Ccum],[n,n,MaxHorizons]);
-            
-            %% allocate memory
-            obj.SR = zeros(nSignRestrictions,n); % matrix with sign restrictions
-            obj.ZR = zeros(nZeroRestrictions,n); % matrix with zero restrictions
-            obj.GSR = zeros(nG,mG,nSignRestrictions); % Derivatives of sign restricted IRF
-            obj.GZR = zeros(nG,mG,nZeroRestrictions); % Derivatives of zero restricted IRF
-            
-            iSR = 1;
-            iZR = 1;
-            
-            for i=1:(nSignRestrictions+nZeroRestrictions) % loop through all restricions
-                
-                currentRestriction = (1-restMat(i,4)) *     VMA(restMat(i,1),:,restMat(i,2)+1) +...
-                    restMat(i,4)  *  VMAcum(restMat(i,1),:,restMat(i,2)+1);
-                currentRestrictionDerivative = (1-restMat(i,4)) *    obj.G(:,:,restMat(i,2)+1) +...
-                    restMat(i,4)  * obj.Gcum(:,:,restMat(i,2)+1);
-                
-                if  restMat(i,3)==0  % check if it is a zero restrictions
-                    obj.ZR(iZR,:)    = currentRestriction;
-                    obj.GZR(:,:,iZR) = currentRestrictionDerivative;
-                    
-                    iZR=iZR+1;
-                else    % sign constraints
-                    
-                    obj.SR(iSR,:) = currentRestriction;
-                    obj.GSR(:,:,iSR) = currentRestrictionDerivative;
-                    %% Convert restrictions to cannonical form
-                    obj.SR(iSR,:)     = restMat(i,3)* obj.SR(iSR,:) ;
-                    obj.GSR(:,:,iSR)  = restMat(i,3)* obj.GSR(:,:,iSR) ;
-                    
-                    iSR=iSR+1;
-                end
-            end
-            %% legacy interface
-            
-            obj.spec = struct(...
-                'Niq',nSignRestrictions,...    % number of sign (inequality) restrictions
-                'Neq',nZeroRestrictions,...    % number of zero (equality) restrictions
-                'eiq',obj.ID.selectorSR,...    % 'e' vectors of inequality restrictions
-                'eeq',obj.ID.selectorZR,...    % 'e' vectors of equality restrictions
-                'Giq',obj.GSR,...    % G matrix associated with inequality constraints
-                'Geq',obj.GZR,...    % G matrix associated with   equality constraints
-                'Ziq',(obj.SR)',...   % sign restrictions
-                'Zeq',(obj.ZR)',...   % zero restrictions
-                'maskColMax',obj.ID.maskColMax,...    % IRF to skip
-                'maskColMin',obj.ID.maskColMin,...    % IRF to skip
-                'FiqMax', obj.ID.negativeSR,...   % matrix with indexed negative sign restrictions
-                'FiqMin', obj.ID.positiveSR,...   % matrix with indexed positive sign restrictions
-                'restMat',obj.ID.getRestMat);   % input restriction matrix
-        end
+        
         function IRFcol     = onesidedIRFCSAnalytic(obj,minmax,level)
             
             %% baseline analytical algorithm in GM 2014
@@ -358,13 +287,13 @@ classdef SVAR < estimatedVecAR
             objSimulated = resampleTheta@VecAR(obj,seedMC);
             objSimulated = objSimulated.separateSandZ; 
         end
-        function n = nTS(obj) % fixme
-            % Funciton nTS returns the number of time series
-            n = obj.n;
-        end
         function cumOrNot = cum(obj)
             cumOrNot = obj.config.cum;
         end
+        function restMat = getRestMat(obj)
+           restMat = obj.ID.getRestMat;
+        end
+        
         
     end
     

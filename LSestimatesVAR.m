@@ -13,11 +13,9 @@ classdef LSestimatesVAR < handle
         etahat;        % estimated residuals/forecast errors
         
         %% Estimates of IRF
-        C;           % C is the estimated reduced form VMA representation, a long matrix (n  x n(MaxHorizons+1) )
-        Ccum;        % Ccum is the estimated cumulative VMA representation, a long matrix (n  x n(MaxHorizons+1) )
-        G;          %  G matrix: derivative of vec(C) wrt vec(AL)
-        Gcum;       %  Derivatives of Ccum wrt vec(AL).
-        
+        VMA_ts_sh_ho;           
+        G;            %  G matrix: derivative of vec(C) wrt vec(AL)
+         
         Omega;      % asymptotic covariance matrix for reduced form coefficients
         Omegainv;   % Block inverse of Omega (assumes homoskedasticity)
         
@@ -55,6 +53,15 @@ classdef LSestimatesVAR < handle
             bic  = logLikelihood + log(T) * penalty;
             hqic = logLikelihood + 2*log(log(T)) * penalty;
         end
+        function VMA_ts_sh_ho = getVMA_ts_sh_ho(obj)
+            VMA_ts_sh_ho = obj.VMA_ts_sh_ho;
+        end
+        function Sigma = getSigma(obj)
+            Sigma = obj.SigmaHat;
+        end
+        function G = getVMADerivatives(obj)
+            G = obj.G;
+        end
 
     end
     methods (Access = private)
@@ -74,11 +81,12 @@ classdef LSestimatesVAR < handle
             [obj.Omega, obj.Omegainv] = computeCovarianceOfTheta( X, obj.etahat );
         end
         function obj = computeVMAandDerivatives(obj)
-            [obj.C,obj.Ccum] = VecAR.getVMAfromAL(  obj.ALhat_n_x_np,  configFile.MaxHorizons);
-            [obj.G,obj.Gcum] = VecAR.getVMAderivatives(  obj.ALhat_n_x_np,  configFile.MaxHorizons);
+            obj.VMA_ts_sh_ho = VecAR.getVMAfromAL(  obj.ALhat_n_x_np,  configFile.MaxHorizons);
+            obj.G    = VecAR.getVMAderivatives(  obj.ALhat_n_x_np,  configFile.MaxHorizons);
         end
 
-        function obj = bab(obj)
+
+        function obj = killiansBootstrap(obj)
          % LEGACY CODE, needs refactoring
             
             % -------------------------------------------------------------------------
@@ -189,6 +197,9 @@ classdef LSestimatesVAR < handle
 end 
 
 function [OmegaHat,OmegaHatinv] = computeCovarianceOfTheta(X,eta)
+% TODO : Take the book and check the formulas.Then refactor it.
+
+
 % -------------------------------------------------------------------------
 % Computes the asymptotic variance of [vec(Ahat)',vech(Sigmahat)']'
 % Please, refer to  Lütkepohl H. New introduction to multiple time series analysis. ? Springer, 2007.
@@ -263,13 +274,8 @@ switch scedasticity
         %This is the covariance matrix we are interested in
         
         
-        %% Construct the selector matrix VauxInverse that gives: vech(Sigma)=Vaux*vec(Sigma)
-        I = eye(n);
-        VauxInverse = kron(I(1,:),I);
-        for i=2:n
-            VauxInverse = [VauxInverse; kron(I(i,:),I(i:end,:))];
-        end
-        
+
+        vechFromVec = getVechFromVec(n);
         
         %% Check bad conditioning
         test = n^2*p + n*(n+1)/2 < T1aux;
@@ -280,11 +286,11 @@ switch scedasticity
         
         %% This is the estimator for matrix W in Assumption 1
         Mhat = [kron([zeros(n*p,1),eye(n*p)]*(XSVARp'*XSVARp./T1aux)^(-1),eye(n)), zeros((n^2)*p,n^2); ...
-            zeros(n*(n+1)/2,((n^2)*p)+n), VauxInverse];
+            zeros(n*(n+1)/2,((n^2)*p)+n), vechFromVec];
         OmegaHat = (Mhat)*(WhatAss1)*(Mhat');
         OmegaHatinv = OmegaHat\eye(size(OmegaHat));
     otherwise
-        error('Warning: choose homo or heteorscedasticity option')
+        error('Warning: choose "homo" or "hetero" scedasticity option')
 end
 
 

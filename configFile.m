@@ -18,7 +18,7 @@ classdef configFile < handle
         largeNumber = 100000;  % FIXME: constant c from the paper 
         smallNumber = 1e-6;
         %% Svar
-         cum = '';  % 'cum' = cumulative IRF responses
+        cum = '';  % 'cum' = cumulative IRF responses
 
         %% Specify shock
         % solve for IRF bounds of specified shock
