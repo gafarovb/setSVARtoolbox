@@ -1,4 +1,4 @@
-classdef IDrestrictions<handle
+classdef IDassumptions < handle
     
     
     %%      restrictions class describes restrictions on IRF in SVARs
@@ -9,30 +9,28 @@ classdef IDrestrictions<handle
     
     
     properties (Access = private)
-        restrictionsMatrixInput;  % Matrix with columns: Var Hor S/Z Cum Shk
+        assumptionsMatrixInput;  % Matrix with columns: Var Hor S/Z Cum Shk
     end
     
     properties (SetAccess = public)
         selectorSR;    % 'e' vectors of inequality restrictions
         selectorZR;    % 'e' vectors of equality restrictions
-        maskColMax;    % IRF to skip
-        maskColMin;    % IRF to skip
-        negativeSR;    % matrix with indexed negative sign restrictions : Var Horizon (-1) iSignRestriction 
-        positiveSR;    % matrix with indexed positive sign restrictions : Var Horizon ( 1) iSignRestriction
+        negativeSR;    % matrix with indexed negative sign restrictions : Var Horizon (-1) indexOfSignRestriction 
+        positiveSR;    % matrix with indexed positive sign restrictions : Var Horizon ( 1) indexOfSignRestriction
     end
     
     methods
-        function obj = IDrestrictions(restricitonsFilename)
+        function obj = IDassumptions(assumptionsFilename)
             % read the restricitons matrix from a file  'restMat.dat'
-            obj.restrictionsMatrixInput = load(restricitonsFilename);
+            obj.assumptionsMatrixInput = load(assumptionsFilename);
         end
         function obj = constructSelectors(obj,nShocks)
             % this function constructs selector matrices corresponding to the restrictions 
+            %  TODO: refactor this function
             
             %% interface
             nSignRestrictions = countSignRestrictions(obj);
             nZeroRestrictions = countZeroRestrictions(obj);
-            MaxHorizons = configFile.MaxHorizons;         
             restMat = obj.getRestMat;
             
             %% allocate memory
@@ -57,26 +55,15 @@ classdef IDrestrictions<handle
                 end
             end
             
-            obj.negativeSR = orderOfSR(orderOfSR(:,3)<0,:);
-            obj.positiveSR = orderOfSR(orderOfSR(:,3)>0,:); % matrix with indexed positive sign restrictions
+            obj.negativeSR = orderOfSR( orderOfSR(:,3)<0,:);
+            obj.positiveSR = orderOfSR( orderOfSR(:,3)>0,:); % matrix with indexed positive sign restrictions
            
-            if ~isempty(obj.negativeSR)
-                obj.maskColMax  = logical( full(sparse(obj.negativeSR(:,1),        1+ obj.negativeSR(:,2),1,nShocks,MaxHorizons+1)));
-            else
-                obj.maskColMax  = false(nShocks,MaxHorizons+1)  ;
-            end
-            
-            if ~isempty(obj.positiveSR)
-                obj.maskColMin  = logical( full(sparse(obj.positiveSR(:,1),        1+ obj.positiveSR(:,2),1,nShocks,MaxHorizons+1)));
-            else
-                obj.maskColMin  = false(nShocks,MaxHorizons+1)  ;
-            end
-
+ 
             
         end
         function matrix = getRestMat(obj)
             % read the restricitons matrix
-            matrix = obj.restrictionsMatrixInput;
+            matrix = obj.assumptionsMatrixInput;
         end
         function nSignRestrictions = countSignRestrictions(obj)
             restMat = obj.getRestMat ;
@@ -97,19 +84,19 @@ classdef IDrestrictions<handle
         
         
         function horizon = getHorizonOfaRestriction( obj, aRestriction)
-            horizon = obj.restrictionsMatrixInput( aRestriction,2) + 1;
+            horizon = obj.assumptionsMatrixInput( aRestriction,2) + 1;
         end
         function tsOfaRestriction = getTsOfaRestriction( obj, aRestriction)
-            tsOfaRestriction = obj.restrictionsMatrixInput( aRestriction,1);
+            tsOfaRestriction = obj.assumptionsMatrixInput( aRestriction,1);
         end
         function isCumulative = aRestrictionIsCumulative( obj, aRestriction)
-            isCumulative = obj.restrictionsMatrixInput( aRestriction,2) + 1;
+            isCumulative = obj.assumptionsMatrixInput( aRestriction,2) + 1;
         end
         function isZeroRestirction = aRestrictionIsEquality( obj, aRestriction)
-            isZeroRestirction = (obj.restrictionsMatrixInput( aRestriction,3)==0) ;
+            isZeroRestirction = (obj.assumptionsMatrixInput( aRestriction,3)==0) ;
         end  
         function signedOne = convertArestrictionToGeq( obj, aRestriction)
-            signedOne = obj.restrictionsMatrixInput(aRestriction,3);
+            signedOne = obj.assumptionsMatrixInput(aRestriction,3);
         end
         
         function linearConstraintsAndDerivatives = generateLinearConstraints( obj,objSVAR)

@@ -27,7 +27,7 @@ classdef SVAR < estimatedVecAR
         function obj = SVAR
             obj@estimatedVecAR; % create a reduced form VAR model
             obj.label = obj.config.label;
-            obj.ID = IDrestrictions( obj.config.restricitonsFilename); % read restrictions from a file
+            obj.ID = IDassumptions( obj.config.assumptionsFilename); % read ID assumptions from a file
             
 %         obj = obj.separateSandZ;             % creates a specificaiton structure to characterize the restrictions
         end
@@ -60,23 +60,15 @@ classdef SVAR < estimatedVecAR
             switch(minmax)
                 case 'min'
                     minInd = -1;
-                    maskCol = obj.ID.maskColMin;
-                    bindingSR = obj.ID.positiveSR;
+                     bindingSR = obj.ID.positiveSR;
                     sortDirection = 'ascend';
                 case 'max'
                     minInd = 1;
-                    maskCol = obj.ID.maskColMax;
-                    bindingSR = obj.ID.negativeSR;
+                     bindingSR = obj.ID.negativeSR;
                     sortDirection = 'descend';
                 otherwise
                     error('Choose min or max');
             end;
-            
-
-            
-            
-            
-            
             
             optimiaztionProblems = optimizationProblems( obj);
             %% interface
@@ -154,7 +146,7 @@ classdef SVAR < estimatedVecAR
                     arg(:,ts,k) = HArray(:,ts,k,indexSet(ts,k,1));
                 end
             end
-            value(maskCol) = ((minInd*value(maskCol))<0).* value(maskCol);
+             
             
             
             IRFs = IRFcollection(value,obj.names,[minmax, ' point estimates']) ;

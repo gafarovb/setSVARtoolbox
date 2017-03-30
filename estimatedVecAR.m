@@ -63,6 +63,9 @@ classdef estimatedVecAR < VecAR
         function T = getT(obj)
             T = obj.dataSample.countTimePeriods;
         end
+        function Sigma = getSigma(obj)
+            Sigma = obj.estimates.getSigma;
+        end
     end
     
 end

@@ -4,7 +4,7 @@ classdef configFile < handle
     
     properties (Access = public,Constant )
         %% read specification
-        restricitonsFilename = ['MSG' filesep 'restMat.dat'];
+        assumptionsFilename = ['MSG' filesep 'restMat.dat'];
         dataFilenameCSV = ['MSG' filesep 'data.csv']; % T=165
         label = 'MSG';
         nLags = 12;

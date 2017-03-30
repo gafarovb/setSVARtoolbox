@@ -9,21 +9,25 @@ classdef optimizationProblems < handle
         subproblems;
         objectiveFunctions;
         linearConstraints;
+        Sigma;
     end
-    
+ 
     methods
         function obj = optimizationProblems( objSVAR)
             obj.nShocks = objSVAR.getN;
             obj.nInequalities = objSVAR.ID.countSignRestrictions;  % number of sign restrictions
             obj.nEqualities   = objSVAR.ID.countZeroRestrictions;  % number of zero restrictions
             
+            obj.Sigma   = objSVAR.getSigma;
             obj.objectiveFunctions = objSVAR.getReducedFormIRF;
             obj.linearConstraints =  objSVAR.ID.generateLinearConstraints(objSVAR); 
             
             obj.subproblems = initializeSubproblems(obj);
             
         end
-        
+        function  SigmaSqrt = getSQRTSigma(obj)
+            SigmaSqrt = (obj.Sigma)^(1/2);    %Sigma^(1/2) is the symmetric sqrt of Sigma.
+        end
         function subProblems = initializeSubproblems(obj)
             
             degreesOfFreedom = obj.nShocks-obj.nEqualities-1;
@@ -32,7 +36,7 @@ classdef optimizationProblems < handle
             
             iSubProblem = 1; 
             activeSet = false(obj.nInequalities,1);
-            subProblems = subproblemsGivenActiveSet(activeSet);
+            subProblems = subproblemsGivenActiveSet(activeSet,obj);
             
             for nActiveSR = 1:MaxNumberOfActiveSR
                 
@@ -50,13 +54,17 @@ classdef optimizationProblems < handle
             end
             
         end
- 
-        
+        function linearConstraints = getLinearConstraints(obj)
+            linearConstraints = obj.linearConstraints;
+        end
+        function objectiveFunctions = getObjectiveFunctions(obj)
+            objectiveFunctions = obj.objectiveFunctions;
+        end
     end
     
     methods (Static)
         function indicesOfActiveSRForSubsets = getAllsubsetsSize_k_from_N(N,k)
-            if k==0  % no active restrictions
+            if k == 0  % no active restrictions
                 indicesOfActiveSRForSubsets = []; 
             else
                 indicesOfActiveSRForSubsets = combnk(1: N, k); 
