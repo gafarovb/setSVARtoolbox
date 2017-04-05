@@ -13,7 +13,7 @@ classdef IRFcollection < IRF
                 obj(n) = IRFcollection;
                 for iVar = 1:n
                     currentIRF = IRF(IRFmatrix(iVar,:),names(iVar),label);
-                    obj(iVar).Val = currentIRF.Val;
+                    obj(iVar).Values = currentIRF.Values;
                     obj(iVar).labelTS = names(iVar);
                     obj(iVar).label = label;
                 end

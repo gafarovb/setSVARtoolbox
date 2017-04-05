@@ -4,7 +4,7 @@ classdef IRF
     
     
     properties (Access = public)
-        Val = [];
+        Values = [];
         labelTS = 'Unnamed TS';
         label = 'Unknown IRF' ;
     end
@@ -19,30 +19,30 @@ classdef IRF
           if nargin~=0  
             obj.labelTS = labelTS;
             obj.label   = label;
-            obj.Val     = vectorIRF;
+            obj.Values     = vectorIRF;
           end
         end
         function d = double(obj)
-            d = obj.Val;
+            d = obj.Values;
         end
         function obj = plus(obj1,obj2)
             [obj,a,b] = genericOperation(obj1,obj2);
-            obj.Val = a + b;
+            obj.Values = a + b;
         end
         function obj = minus(obj1,obj2)
             [obj,a,b] = genericOperation(obj1,obj2);
-            obj.Val = a - b;
+            obj.Values = a - b;
         end
         function obj = le(obj1,obj2)
             [obj,a,b] = genericOperation(obj1,obj2);
-            obj.Val = logical(a <= b);
+            obj.Values = logical(a <= b);
         end
         function obj = ge(obj1,obj2)
             [obj,a,b] = genericOperation(obj1,obj2);
-            obj.Val = logical(a >= b);
+            obj.Values = logical(a >= b);
         end
         function nHorizons = MaxHorizons(obj)
-            nHorizons = size(obj.Val,2)-1;
+            nHorizons = size(obj.Values,2)-1;
         end
  
     end

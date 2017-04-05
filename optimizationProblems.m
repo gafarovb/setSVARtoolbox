@@ -18,8 +18,6 @@ classdef optimizationProblems < handle
  
     methods
         function obj = optimizationProblems( objSVAR)
-            obj.nInequalities = objSVAR.ID.countSignRestrictions;  % number of sign restrictions
-            obj.nEqualities   = objSVAR.ID.countZeroRestrictions;  % number of zero restrictions
             obj.config = objSVAR.getConfig;
             obj.Sigma   = objSVAR.getSigma;
             obj.objectiveFunctions = objSVAR.getReducedFormIRF;
@@ -32,23 +30,23 @@ classdef optimizationProblems < handle
             SigmaSqrt = (obj.Sigma)^(1/2);    %Sigma^(1/2) is the symmetric sqrt of Sigma.
         end
         function subProblems = initializeSubproblems(obj)
-            degreesOfFreedom = obj.getN-obj.nEqualities-1;
-            MaxNumberOfActiveSR = min( obj.nInequalities, degreesOfFreedom);
+            degreesOfFreedom = obj.getN-obj.countEqualityRestrictions-1;
+            MaxNumberOfActiveSR = min( obj.countInequalityRestrictions, degreesOfFreedom);
             % SR stands for Sign Restrictions 
             
             iSubProblem = 1; 
-            activeSet = false(obj.nInequalities,1);
+            activeSet = false(obj.countInequalityRestrictions,1);
             subProblems = subproblemsGivenActiveSet(activeSet,obj);
             
             for nActiveSR = 1:MaxNumberOfActiveSR
                 
                 indicesOfActiveSRForSubsetsOf_nActive_elements = ...
-                    obj.getAllsubsetsSize_k_from_N(  obj.nInequalities,  nActiveSR);
+                    obj.getAllsubsetsSize_k_from_N(  obj.countInequalityRestrictions,  nActiveSR);
                 nSubProblemsOfSize_nActiveSR = size( indicesOfActiveSRForSubsetsOf_nActive_elements ,1);
                 
                 for ix = 1 : nSubProblemsOfSize_nActiveSR
                     iSubProblem = iSubProblem + 1;
-                    activeSet = false( obj.nInequalities,  1);
+                    activeSet = false( obj.countInequalityRestrictions,  1);
                     activeSet(indicesOfActiveSRForSubsetsOf_nActive_elements(ix,:)) = true; % create an index mask for a given active set of constraint with index jx
 
                     subProblems(iSubProblem) = subproblemsGivenActiveSet( activeSet, obj);
@@ -83,7 +81,12 @@ classdef optimizationProblems < handle
             end
             maxBounds = max(maxBoundsForSubproblems,[],3);
         end
-        
+        function nInequalities = countInequalityRestrictions(obj)
+            nInequalities = size(obj.linearConstraints.SR,1);
+        end
+        function nEqualities = countEqualityRestrictions(obj)
+            nEqualities = size(obj.linearConstraints.ZR,1);
+        end
         function minBounds = getMinBounds(obj)
             minBoundsForSubproblems  = zeros(obj.getN,obj.getHorizons,obj.countSubproblems);
             nSubProblems = obj.countSubproblems;

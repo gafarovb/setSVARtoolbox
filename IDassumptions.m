@@ -11,55 +11,12 @@ classdef IDassumptions < handle
     properties (Access = private)
         assumptionsMatrixInput;  % Matrix with columns: Var Hor S/Z Cum Shk
     end
-    
-    properties (SetAccess = public)
-        selectorSR;    % 'e' vectors of inequality restrictions
-        selectorZR;    % 'e' vectors of equality restrictions
-        negativeSR;    % matrix with indexed negative sign restrictions : Var Horizon (-1) indexOfSignRestriction 
-        positiveSR;    % matrix with indexed positive sign restrictions : Var Horizon ( 1) indexOfSignRestriction
-    end
+
     
     methods
         function obj = IDassumptions(assumptionsFilename)
             % read the restricitons matrix from a file  'restMat.dat'
             obj.assumptionsMatrixInput = load(assumptionsFilename);
-        end
-        function obj = constructSelectors(obj,nShocks)
-            % this function constructs selector matrices corresponding to the restrictions 
-            %  TODO: refactor this function
-            
-            %% interface
-            nSignRestrictions = countSignRestrictions(obj);
-            nZeroRestrictions = countZeroRestrictions(obj);
-            restMat = obj.getRestMat;
-            
-            %% allocate memory
-            orderOfSR  = zeros(nSignRestrictions,4);  
-            obj.selectorSR = zeros(nShocks,nSignRestrictions);
-            obj.selectorZR = zeros(nShocks,nZeroRestrictions);
-            Emat = eye(nShocks);
-            iSR = 1;
-            iZR = 1;
-            lf  = 0;
-            
-            for i=1:(nSignRestrictions+nZeroRestrictions) % loop through all restricions
-                if  restMat(i,3)==0                      % check if it is a zero restrictions
-                    obj.selectorZR(:,iZR) = Emat(:,restMat(i,1));
-                    iZR=iZR+1;
-                else                                     % assume sign constraints
-                    lf=lf+1;
-                    orderOfSR(lf,1:3)=restMat(i,1:3);
-                    orderOfSR(lf,4)= iSR;
-                    obj.selectorSR(:,iSR) = Emat(:,restMat(i,1));
-                    iSR=iSR+1;
-                end
-            end
-            
-            obj.negativeSR = orderOfSR( orderOfSR(:,3)<0,:);
-            obj.positiveSR = orderOfSR( orderOfSR(:,3)>0,:); % matrix with indexed positive sign restrictions
-           
- 
-            
         end
         function matrix = getRestMat(obj)
             % read the restricitons matrix
