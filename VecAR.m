@@ -17,6 +17,9 @@ classdef VecAR
             end;
             
         end
+        function configHandle = getConfig (obj)
+            configHandle = obj.config;
+        end
     end
     
     
@@ -142,8 +145,7 @@ classdef VecAR
             
             
         end
-        
-     
+
 
     end
     

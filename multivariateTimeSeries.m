@@ -30,6 +30,9 @@ classdef multivariateTimeSeries < handle
             
             X = [ones(availableT,1), laggedY((nLags+1):end,:)];    %The rows of this matrix are [1,X_{t}'] 
         end
+        function names = getNames(obj)
+            names = obj.labelsOfTimeSeries;
+        end
     end
 
 end

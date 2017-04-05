@@ -17,10 +17,8 @@ classdef SVAR < estimatedVecAR
     end
     
     properties (Access = private)
-        SR  ; % matrix with sign restrictions
-        ZR  ; % matrix with zero restrictions
-        GSR ; % Derivatives of sign restricted IRF
-        GZR ; % Derivatives of zero restricted IRF
+        optimiaztionProblems;
+        % todo: make reduced VAR a  property!
     end
         
     methods
@@ -28,239 +26,21 @@ classdef SVAR < estimatedVecAR
             obj@estimatedVecAR; % create a reduced form VAR model
             obj.label = obj.config.label;
             obj.ID = IDassumptions( obj.config.assumptionsFilename); % read ID assumptions from a file
-            
-%         obj = obj.separateSandZ;             % creates a specificaiton structure to characterize the restrictions
-        end
+            obj.optimiaztionProblems = optimizationProblems( obj);  
+         end
         
         %%
-        function [IRFs,solution] = onesidedIRFHatAnalytic(obj,minmax)
-            % todo: refactor this method
-            
-            % -------------------------------------------------------------------------
-            % Computes point estimates for lower/upper bounds on the structual IRFs
-            % with m<=n-1 zero-restrictions and sign-restrictions. The sign restriction
-            % need not be contemporaneous.
-            % Hint: One can generate lower bounds by supplying -Z instead of Z and by
-            % multiplying the output by -1.
-            %
-            % Former name : BoundsGM(minmax,RVAR,spec,opt)
-            %
-            % Inputs:
-            % - obj: SVAR object
-            % - minmax: 'max' ('min') for upper (lower) bound on structural IRFs
-            % Outputs:
-            % - solution: structure with bounds on structural IRFs
-            %
-            % This version: March 21, 2017
-            % last edit : Bulat Gafarov
-            % -------------------------------------------------------------------------
-            
-            %% Read input structure
-            % Min or max bounds
-            switch(minmax)
-                case 'min'
-                    minInd = -1;
-                     bindingSR = obj.ID.positiveSR;
-                    sortDirection = 'ascend';
-                case 'max'
-                    minInd = 1;
-                     bindingSR = obj.ID.negativeSR;
-                    sortDirection = 'descend';
-                otherwise
-                    error('Choose min or max');
-            end;
-            
-            optimiaztionProblems = optimizationProblems( obj);
-            %% interface
-            Sigma = obj.estimates.getSigma;
-
-            
-
-            signedLargeNum = obj.config.largeNumber * minInd;
-            smallNum = obj.config.smallNumber;
-            
-
-            
-            reducedFormIRF = obj.getReducedFormIRF ;
-            nShocks = size(reducedFormIRF,1);                %Gives the dimension of the VAR
-            hori = size(reducedFormIRF,2)-1;           %Gives the horizon of IRFs
-            nComb = obj.ID.countActiveSets(nShocks);
-            sigmaSqrt = (Sigma)^(1/2);    %Sigma^(1/2) is the symmetric sqrt of Sigma.
-            
-            
-            %% Allocate memory
-            nSignRestrictions = obj.ID.countSignRestrictions;  % number of sign restrictions
-            nZeroRestrictions = obj.ID.countZeroRestrictions;  % number of zero restrictions
-            
-            
-            
-            %% This segment implements the formula from Proposition 1 and 2
-            
-            
-            %% initialize
-            BoundsArray = - signedLargeNum * ones(nShocks,hori+1,nComb*2);
-            HArray      = zeros(nShocks,nShocks,hori+1,nComb*2);
-            valArray = zeros(nShocks,hori+1,nComb*2);
-            
-            
-            
-            %% loop through all possible cardinalities of subsets of active sign restrictions
-           
-                        ZR   = obj.ZR;
-            SR   = obj.SR;
-            
-            iSubproblem = -1; % total index for all cardinalities of active sets
-            for SRsubsetCardinality = 0:min(nSignRestrictions,nShocks-nZeroRestrictions-1)
-                %% count number of subsets with subsetCardinality elements
-                if SRsubsetCardinality==0  % no active restrictions
-                    combinations = []; % set of combinations is empty!
-                    nSubCombitations = 1; % we need to consider only the unrestricted case
-                else
-                    combinations = combnk(1:nSignRestrictions,SRsubsetCardinality); % matrix with indexes of all subsets of length lx
-                    [nSubCombitations,~] = size(combinations);   % number of combinations of length lx to consider
-                end
-                %% loop through all possible subsets of sign restrictions of lengths lx
-                for ix = 1:nSubCombitations
-                    iSubproblem = iSubproblem+2;
-                    activeSet = false(nSignRestrictions,1);
-                    if SRsubsetCardinality > 0  % active set could be empty
-                        activeSet(combinations(ix,:)) = true; % create an index mask for a given active set of constraint with index jx
-                    end
-                    % activate only restrictions from activeSet
-                    [BoundsArray(:,:,iSubproblem),BoundsArray(:,:,iSubproblem+1),HArray(:,:,:,iSubproblem),valArray(:,:,iSubproblem)] = subproblemBounds(activeSet,bindingSR);
-                    HArray(:,:,:,iSubproblem+1) = - HArray(:,:,:,iSubproblem);
-                    valArray(:,:,iSubproblem+1) = - valArray(:,:,iSubproblem);
-                end
-                
-                
-            end
-            
-            
-            %% generate output
-            % Find maximum over all combinations of active sets
-            [BoundsArSort,indexSet] = sort(BoundsArray,3,sortDirection);
-            value = BoundsArSort(:,:,1);  % maximum bounds
-            arg =  zeros(nShocks,nShocks,hori+1);     % argmax vectors for every TS/horizon
-            for k = 1:(hori+1)
-                for ts=1:nShocks
-                    arg(:,ts,k) = HArray(:,ts,k,indexSet(ts,k,1));
-                end
-            end
-             
-            
-            
-            IRFs = IRFcollection(value,obj.names,[minmax, ' point estimates']) ;
-            
-            
-            
-            
-            % -------------------------------------------------------------------------
-            %% Define nested functions
-            
-            function [BoundLocal,BoundLocalNeg,Hlocal,valuleLocal] = subproblemBounds(activeSR,bindingSR)
-                % this subfunction computes the upper bounds BoundU and the corresponding
-                % argmaxes HU given that Zactive constraints are active and sign constraints Z are imposed
-                
-                
-                %% initialize local variables
-                activeZ  = [ZR; SR(activeSR,:)];
-                inactZ    = SR(~activeSR,:);
-                BoundLocal    = zeros(nShocks,hori+1);
-                BoundLocalNeg = zeros(nShocks,hori+1);
-                valuleLocal    = zeros(nShocks,hori+1);
-                Hlocal = zeros(nShocks,nShocks,hori+1);
-                
-                
-                %% 'effective' covariance matrix under active constraints
-                %  Compare with Lemma 1
-                if ~isempty(activeZ) % if there are active zero constraints
-                    M = eye(nShocks) - ( (sigmaSqrt * activeZ')*((activeZ * Sigma * activeZ')^(-1))* (activeZ * sigmaSqrt)) ; % compare with  Proposition 1
-                    sigmaM = sigmaSqrt * M * sigmaSqrt;   % "Effective" covariance matrix given the set Zactive
-                else % if there are no active or zero constraints, follow the formula for the  unresrticted case
-                    sigmaM = Sigma ;
-                end
-                
-                for iHorizon=1:hori+1  % loop over IRF horizon
-                    
-                    %% bounds under active constraints
-                    Htmp = sigmaM*reducedFormIRF(:,:,iHorizon)';
-                    % Compute max value under active constraints
-                    % - abs is used to avoid complex numbers with Imaginary part equal to Numerical zero
-                    boundtmp = abs((diag(reducedFormIRF(:,:,iHorizon) * Htmp)).^.5);
-                    % Compute argmax under active constraints
-                    %  - bsxfun divides by zeros without warning
-                    Hlocal(:,:,iHorizon) = bsxfun(@rdivide,Htmp,boundtmp');
-                    BoundLocal(:,iHorizon)    =   boundtmp ;
-                    BoundLocalNeg(:,iHorizon) = - boundtmp ;
-                    valuleLocal(:,iHorizon)   =   boundtmp ;
-                    
-                    %% Check whether signs restrictions are satisfied. Compare with Proposition 1
-                    noSelfPenalty  = true(nShocks,1)  ;
-                    slackness = zeros(size(inactZ,1),nShocks); % this matrix helps to avoid "selfpenalization"
-                    for iBindingSR=1:size(bindingSR,1)
-                        if   (bindingSR(iBindingSR,2)+1)==iHorizon
-                            if activeSR( bindingSR(iBindingSR,4) )
-                                noSelfPenalty(bindingSR(iBindingSR,1)) = false; % this matrix helps to avoid "selfpenalization"
-                            else
-                                columnWithOne = zeros(size(SR,1),1);
-                                columnWithOne(bindingSR(iBindingSR,4))=abs(signedLargeNum);
-                                columnWithOne = columnWithOne(~activeSR,:);
-                                slackness(:,bindingSR(iBindingSR,1))= columnWithOne;
-                            end
-                        end
-                    end
-                    
-                    % if there are no sign restrictions, the idicator functions are equal to 1
-                    % iff  some sign restriction is violated by a margin of a numerical error of 1.e-6
-                    % the corresponding indicator function is equal to 0
-                    boundsToPenalize =    (ones(nShocks,1) - ( all(inactZ*Hlocal(:,:,iHorizon)+slackness>-smallNum,1)' & noSelfPenalty ) );
-                    boundsToPenalizeNeg = (ones(nShocks,1) - ( all(inactZ*Hlocal(:,:,iHorizon)-slackness< smallNum,1)' & noSelfPenalty ) );
-                    
-                    
-                    %% impose penalty for the violation of feasibility constraint
-                    if ~isempty(inactZ)
-                        BoundLocal(:,iHorizon)    =   BoundLocal(:,iHorizon) - signedLargeNum * boundsToPenalize;
-                        BoundLocalNeg(:,iHorizon) =BoundLocalNeg(:,iHorizon) - signedLargeNum * boundsToPenalizeNeg;
-                    end
-                    
-                end
-                
-                
-            end
-            % -------------------------------------------------------------------------
-            
-            
-            
-            
-            %% legacy code
-            valArlong = reshape(valArray,[nShocks,hori+1,2,nComb]);
-            [~,ind] = max(minInd*valArlong,[],3);
-            valArnew = zeros(nShocks,hori+1,nComb);
-            HArlong = reshape(HArray,[nShocks,nShocks,hori+1,2,nComb]);
-            HArnew = zeros(nShocks,nShocks,hori+1,nComb);
-            for i=1:nShocks
-                for h=1:hori+1
-                    for j=1:nComb
-                        valArnew(i,h,j) = valArlong(i,h,ind(i,h,1,j),j);
-                        HArnew(:,i,h,j) = HArlong(:,i,h,ind(i,h,1,j),j);
-                    end
-                end
-            end
-            
-            
-            
-            solution = struct( ...
-                'Value',value, ...   % lower or upper bounds for every TS/horizon
-                'arg',arg, ...       % argmax vectors for every TS/horizon
-                'HAr',HArnew,...
-                'valAr',valArnew);
-            
+        function maxIRFcollection = onesidedUpperIRFHatAnalytic(obj)
+            maxBoundsMatrix = obj.optimiaztionProblems.getMaxBounds;    
+            maxIRFcollection = IRFcollection(maxBoundsMatrix, obj.getNames, 'max point estimates') ;
         end
-        
+        function minIRFcollection = onesidedLowerIRFHatAnalytic(obj)
+            minBoundsMatrix = obj.optimiaztionProblems.getMinBounds;    
+            minIRFcollection = IRFcollection(minBoundsMatrix, obj.getNames, 'min point estimates') ;
+        end        
         
         
         function IRFcol     = onesidedIRFCSAnalytic(obj,minmax,level)
-            
             %% baseline analytical algorithm in GM 2014
             
             [~, pointEstimates]  = onesidedIRFHatAnalytic(obj,minmax);

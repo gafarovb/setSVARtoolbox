@@ -3,21 +3,24 @@ classdef optimizationProblems < handle
     %   Detailed explanation goes here
     
     properties (Access = private)
+        subproblems;
+        
+        objectiveFunctions;
+        
+        Sigma;
+        
+        linearConstraints;
         nInequalities;
         nEqualities;
-        nShocks;
-        subproblems;
-        objectiveFunctions;
-        linearConstraints;
-        Sigma;
+        
+        config;
     end
  
     methods
         function obj = optimizationProblems( objSVAR)
-            obj.nShocks = objSVAR.getN;
             obj.nInequalities = objSVAR.ID.countSignRestrictions;  % number of sign restrictions
             obj.nEqualities   = objSVAR.ID.countZeroRestrictions;  % number of zero restrictions
-            
+            obj.config = objSVAR.getConfig;
             obj.Sigma   = objSVAR.getSigma;
             obj.objectiveFunctions = objSVAR.getReducedFormIRF;
             obj.linearConstraints =  objSVAR.ID.generateLinearConstraints(objSVAR); 
@@ -25,12 +28,11 @@ classdef optimizationProblems < handle
             obj.subproblems = initializeSubproblems(obj);
             
         end
-        function  SigmaSqrt = getSQRTSigma(obj)
+        function SigmaSqrt = getSQRTSigma(obj)
             SigmaSqrt = (obj.Sigma)^(1/2);    %Sigma^(1/2) is the symmetric sqrt of Sigma.
         end
         function subProblems = initializeSubproblems(obj)
-            
-            degreesOfFreedom = obj.nShocks-obj.nEqualities-1;
+            degreesOfFreedom = obj.getN-obj.nEqualities-1;
             MaxNumberOfActiveSR = min( obj.nInequalities, degreesOfFreedom);
             % SR stands for Sign Restrictions 
             
@@ -59,6 +61,37 @@ classdef optimizationProblems < handle
         end
         function objectiveFunctions = getObjectiveFunctions(obj)
             objectiveFunctions = obj.objectiveFunctions;
+        end
+        function configHandle = getConfig (obj)
+            configHandle = obj.config;
+        end
+        function nSubProblems = countSubproblems(obj)
+            nSubProblems = size( obj.subproblems,2);
+        end
+        function maxHorizons = getHorizons(obj)
+            maxHorizons = size(obj.objectiveFunctions,3);
+        end
+        function nShocks = getN(obj)
+            nShocks = size(obj.objectiveFunctions,1);         
+        end
+        function maxBounds = getMaxBounds(obj)
+            maxBoundsForSubproblems  =  zeros(obj.getN,obj.getHorizons,obj.countSubproblems);
+            nSubProblems = obj.countSubproblems;
+            
+            for i = 1:nSubProblems
+                maxBoundsForSubproblems(:,:,i) = obj.subproblems(i).maxBounds;
+            end
+            maxBounds = max(maxBoundsForSubproblems,[],3);
+        end
+        
+        function minBounds = getMinBounds(obj)
+            minBoundsForSubproblems  = zeros(obj.getN,obj.getHorizons,obj.countSubproblems);
+            nSubProblems = obj.countSubproblems;
+            
+            for i = 1:nSubProblems
+                minBoundsForSubproblems(:,:,i) = obj.subproblems(i).maxBounds;
+            end
+            minBounds = min( minBoundsForSubproblems,[],3);
         end
     end
     

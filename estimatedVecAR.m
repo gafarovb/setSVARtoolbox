@@ -8,6 +8,7 @@ classdef estimatedVecAR < VecAR
         estimates;
     end
     
+    
     methods
         function obj = estimatedVecAR
             obj.config = configFile;
@@ -65,6 +66,9 @@ classdef estimatedVecAR < VecAR
         end
         function Sigma = getSigma(obj)
             Sigma = obj.estimates.getSigma;
+        end
+        function namesOfTS = getNames(obj)
+            namesOfTS = obj.dataSample.getNames;
         end
     end
     

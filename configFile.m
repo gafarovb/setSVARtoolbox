@@ -9,6 +9,7 @@ classdef configFile < handle
         label = 'MSG';
         nLags = 12;
         nLagsMax = 24; % -    maximum possible number of lags in BIC/AIC/HQIC
+        
         %% reduced var
         MaxHorizons = 23;      % the number of horizons to compute the IRF
         scedasticity = 'homo';      % 'homo' = homoscedastic Omega, 'hetero' = heteroscedastic Omega
@@ -54,9 +55,11 @@ end
 
 
 function tsReadyForAnalysis  = MSG_demeanAndSumOfFirstAndFourthSeries(rawTSinColumns)
+
     tsReadyForAnalysis = rawTSinColumns;
     tsReadyForAnalysis(:,4) = tsReadyForAnalysis(:,4) + tsReadyForAnalysis(:,1);
     tsReadyForAnalysis = demeanColumns(tsReadyForAnalysis);  
+    
 end
 function columnsDemeaned = demeanColumns(columnsWithMeans)
     T = size(columnsWithMeans,1);
