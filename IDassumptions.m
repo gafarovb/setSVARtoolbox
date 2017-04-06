@@ -56,7 +56,7 @@ classdef IDassumptions < handle
             signedOne = obj.assumptionsMatrixInput(aRestriction,3);
         end
         
-        function linearConstraintsAndDerivatives = generateLinearConstraints( obj,objSVAR)
+        function linearConstraintsAndDerivatives = generateLinearConstraints( obj,objVecAR)
             %% -------------------------------------------------------------------------
             % This function generates equality and inequality constraints
             %
@@ -67,9 +67,9 @@ classdef IDassumptions < handle
             nSignRestrictions = obj.countSignRestrictions;
             nZeroRestrictions = obj.countZeroRestrictions;
            
-            n =  objSVAR.getN;
-            G =  objSVAR.getVMADerivatives;
-            VMA    = objSVAR.getVMA_ts_sh_ho;
+            n =  objVecAR.getN;
+            G =  objVecAR.getVMADerivatives;
+            VMA    = objVecAR.getVMA_ts_sh_ho;
             Gcum = cumsum(G,3);
             VMAcum = cumsum(VMA,3);
             

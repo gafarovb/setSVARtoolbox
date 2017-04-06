@@ -20,8 +20,8 @@ classdef optimizationProblems < handle
         function obj = optimizationProblems( objSVAR)
             obj.config = objSVAR.getConfig;
             obj.Sigma   = objSVAR.getSigma;
-            obj.objectiveFunctions = objSVAR.getReducedFormIRF;
-            obj.linearConstraints =  objSVAR.ID.generateLinearConstraints(objSVAR); 
+            obj.objectiveFunctions = objSVAR.getIRFObjectiveFunctions;
+            obj.linearConstraints =  objSVAR.generateLinearConstraints; 
             
             obj.subproblems = initializeSubproblems(obj);
             

@@ -1,4 +1,4 @@
-classdef VecAR
+classdef (Abstract) VecAR
     %VECAR Summary of this class goes here
     %   Detailed explanation goes here
     properties (Access = protected)
@@ -7,13 +7,13 @@ classdef VecAR
     end
     
     methods
-        function reducedFormIRF = getReducedFormIRF(obj)
+        function IRFObjectiveFunctions = getIRFObjectiveFunctions(obj)
             switch (obj.config.cum)
                 case 'cum'
                     reducedFormIRFnonCum = obj.getVMA_ts_sh_ho;
-                    reducedFormIRF = cumsum(reducedFormIRFnonCum,3);
+                    IRFObjectiveFunctions = cumsum(reducedFormIRFnonCum,3);
                 otherwise
-                    reducedFormIRF = obj.getVMA_ts_sh_ho;
+                    IRFObjectiveFunctions = obj.getVMA_ts_sh_ho;
             end;
             
         end
@@ -21,7 +21,9 @@ classdef VecAR
             configHandle = obj.config;
         end
     end
-    
+    methods (Abstract)
+        getVMA_ts_sh_ho(obj);
+    end
     
     methods (Access = public, Static)
         function theta = thetaFromALSigma(AL_n_x_np,Sigma)

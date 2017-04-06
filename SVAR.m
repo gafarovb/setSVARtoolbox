@@ -1,4 +1,4 @@
-classdef SVAR < estimatedVecAR 
+classdef SVAR  
     
     %%        SVAR class describes a set-identified SVAR model and offers tools
     %       to construct point estimates and conduct inteference on the impulse
@@ -18,27 +18,47 @@ classdef SVAR < estimatedVecAR
     
     properties (Access = private)
         optimiaztionProblems;
-        % todo: make reduced VAR a  property!
+        VecAR;
+        
     end
         
     methods
-        function obj = SVAR
-            obj@estimatedVecAR; % create a reduced form VAR model
-            obj.label = obj.config.label;
-            obj.ID = IDassumptions( obj.config.assumptionsFilename); % read ID assumptions from a file
+        function obj = SVAR(VecARmodel)
+            if nargin > 0
+                obj.VecAR = VecARmodel; 
+            else
+                obj.VecAR = estimatedVecAR; % create a reduced form VAR model
+            end
+            config = obj.getConfig;
+            obj.label = config.label;
+            obj.ID = IDassumptions( config.assumptionsFilename); % read ID assumptions from a file
             obj.optimiaztionProblems = optimizationProblems( obj);  
          end
         
         %%
         function maxIRFcollection = onesidedUpperIRFHatAnalytic(obj)
             maxBoundsMatrix = obj.optimiaztionProblems.getMaxBounds;    
-            maxIRFcollection = IRFcollection(maxBoundsMatrix, obj.getNames, 'max point estimates') ;
+            maxIRFcollection = IRFcollection(maxBoundsMatrix, obj.VecAR.getNames, 'max point estimates') ;
         end
         function minIRFcollection = onesidedLowerIRFHatAnalytic(obj)
             minBoundsMatrix = obj.optimiaztionProblems.getMinBounds;    
-            minIRFcollection = IRFcollection(minBoundsMatrix, obj.getNames, 'min point estimates') ;
+            minIRFcollection = IRFcollection(minBoundsMatrix, obj.VecAR.getNames, 'min point estimates') ;
         end        
-        
+        function config = getConfig(obj)
+            config = obj.VecAR.getConfig;
+        end
+        function Sigma = getSigma(obj)
+            Sigma = obj.VecAR.getSigma;
+        end
+        function objFunMat = getIRFObjectiveFunctions(obj)
+            objFunMat = obj.VecAR.getIRFObjectiveFunctions;
+        end
+        function nShocks = getN(obj)
+            nShocks = obj.VecAR.getN;
+        end
+        function linearConstraints = generateLinearConstraints(obj)
+            linearConstraints = obj.ID.generateLinearConstraints(obj.VecAR);
+        end
         
         function IRFcol     = onesidedIRFCSAnalytic(obj,minmax,level)
             %% baseline analytical algorithm in GM 2014
