@@ -1,9 +1,10 @@
-classdef subproblemsGivenActiveSet
+classdef subproblemsGivenActiveSet < handle  
     %SUBPROBLEMSFORSVARBOUNDS Summary of this class goes here
     %   Detailed explanation goes here
     
-    properties
+    properties (Access = private)
         linearEqualityConstraints;
+        derivativesOfConstraints_nSZ_sh_dAL;
         inactiveInequlities =  [];
         fullProblem;
         activeSet;
@@ -11,27 +12,38 @@ classdef subproblemsGivenActiveSet
         positiveKKTvalues;
         penaltyForPositiveKKT;
         penaltyForNegativeKKT;
+    end
+    
+    properties (Access = public)
         maxBounds;
         minBounds;
     end
     
+    
     methods
         function obj = subproblemsGivenActiveSet(activeSet, objFullProblem)
-            obj.activeSet = activeSet;
-            
+            obj.activeSet = activeSet;  
             obj.fullProblem = objFullProblem;
             
-            fullSetOfLinearConstraints = objFullProblem.getLinearConstraints;
+            obj.setActiveConstraintsAndDerivatives;
+            obj.computeKKTpointsAndValues ;
+            obj.computeFeasibilityPenalty ;
+            obj.computePenalizedMaximum ;
+            obj.computePenalizedMinimum ;
+         end
+        
+        function obj = setActiveConstraintsAndDerivatives(obj)
+            includedInequalities = obj.activeSet;
             
-            obj.linearEqualityConstraints  = [fullSetOfLinearConstraints.ZR; ...
-                fullSetOfLinearConstraints.SR(activeSet,:)];
+            fullProblemInterface = obj.fullProblem.getLinearConstraintsAndDerivatives;
             
-            obj.inactiveInequlities  = fullSetOfLinearConstraints.SR(~activeSet,:);
+            obj.linearEqualityConstraints  = [fullProblemInterface.ZR_nEqualities_sh; ...
+                fullProblemInterface.SR_nInequalities_sh(includedInequalities,:)];
             
-            obj = computeKKTpointsAndValues(obj);
-            obj = computeFeasibilityPenalty(obj);
-            obj = computePenalizedMaximum (obj);
-            obj = computePenalizedMinimum (obj);
+            obj.derivativesOfConstraints_nSZ_sh_dAL  = cat( 1, fullProblemInterface.GZR_nEqualities_sh_dAL, ...
+                                                 fullProblemInterface.GSR_nInequalities_sh_dAL(includedInequalities,:,:));
+            
+            obj.inactiveInequlities  = fullProblemInterface.SR_nInequalities_sh(~includedInequalities,:);
         end
         function SigmaProjected = getProjectedSigma(obj)
             %% 'effective' covariance matrix under active constraints
@@ -50,7 +62,8 @@ classdef subproblemsGivenActiveSet
         function obj = computeKKTpointsAndValues(obj)
             
             sigmaM = obj.getProjectedSigma;
-            objectiveFunctions = obj.fullProblem.getObjectiveFunctions;
+            objectiveFunctionsAndDerivatives = obj.fullProblem.getObjectiveFunctions;
+            objectiveFunctions =  objectiveFunctionsAndDerivatives.VMA_ts_sh_ho;
             [nShocks,~,maxHorizon] = size(objectiveFunctions);
             
             obj.positiveKKTpoints_sh_ts_ho = 0 * objectiveFunctions;
@@ -106,6 +119,58 @@ classdef subproblemsGivenActiveSet
             minBoundsNegative = - obj.positiveKKTvalues + obj.penaltyForNegativeKKT;
             
             obj.minBounds = min( minBoundsPositive,minBoundsNegative );
+        end
+        
+        function  stdMat = asymptoticStandardDeviationForActiveSet(obj)
+
+            OmegaT = obj.fullProblem.getCovarianceOfThetaT;
+            Sigma = obj.fullProblem.getSigma;
+            VMA  =     obj.fullProblem.getObjectiveFunctions;
+            C_ts_sh_ho = VMA.VMA_ts_sh_ho;
+            G_ts_sh_ho_dAL = VMA.DVMA_ts_sh_ho_dAL;
+            [nShocks,~,maxHorizons] = size(C_ts_sh_ho);
+            
+            xStar_sh_ts_ho = obj.positiveKKTpoints_sh_ts_ho; 
+            val_ts_ho = obj.positiveKKTvalues;
+            Zactive = obj.linearEqualityConstraints;
+            Gactive_nSZ_sh_dAL = obj.derivativesOfConstraints_nSZ_sh_dAL;
+            
+            dAL = size(Gactive_nSZ_sh_dAL,3);
+            restrictionsDerivativeAL = zeros(nShocks,maxHorizons,dAL) ;
+            objFunctionDerivativeAL = zeros(nShocks,maxHorizons,dAL) ;
+            
+            stdMat = zeros(nShocks,maxHorizons);
+            
+            
+            vechFromVec = converter.getVechFromVec(nShocks);   
+            for ts = 1:nShocks
+                for ho = 1 : maxHorizons
+                    wStarForTsHo_nSZ = (Zactive * Sigma *  Zactive')\Zactive * Sigma * C_ts_sh_ho(ts,:,ho)';
+                    
+                    for iAL = 1:dAL
+                        restrictionsDerivativeAL(ts,ho,iAL) = wStarForTsHo_nSZ' *  Gactive_nSZ_sh_dAL(:,:,iAL) * xStar_sh_ts_ho(:,ts,ho);
+                        objFunctionDerivativeAL(ts,ho,iAL)  = G_ts_sh_ho_dAL(ts,:,ho,iAL) * xStar_sh_ts_ho(:,ts,ho);
+                    end
+                    sigmaInvx = Sigma \ xStar_sh_ts_ho(:,ts,ho);
+   
+                    GradvechSigma =  vechFromVec * (val_ts_ho(ts,ho)/2) * kron(sigmaInvx, sigmaInvx) ;
+            
+                    GradAL = objFunctionDerivativeAL(ts,ho,:) - restrictionsDerivativeAL(ts,ho,:);
+                    
+                    Grad =  [squeeze(GradAL);GradvechSigma]';
+                     
+                    
+                    stdMat(ts,ho) = abs((Grad*OmegaT*Grad')^.5);
+
+                end
+            end
+            
+            
+            
+            
+ 
+            
+            
         end
     end
     

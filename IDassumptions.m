@@ -15,8 +15,7 @@ classdef IDassumptions < handle
     
     methods
         function obj = IDassumptions(assumptionsFilename)
-            % read the restricitons matrix from a file  'restMat.dat'
-            obj.assumptionsMatrixInput = load(assumptionsFilename);
+             obj.assumptionsMatrixInput = load(assumptionsFilename);
         end
         function matrix = getRestMat(obj)
             % read the restricitons matrix
@@ -56,7 +55,7 @@ classdef IDassumptions < handle
             signedOne = obj.assumptionsMatrixInput(aRestriction,3);
         end
         
-        function linearConstraintsAndDerivatives = generateLinearConstraints( obj,objVecAR)
+        function linearConstraintsAndDerivatives = getLinearConstraintsAndDerivatives( obj,objVecAR)
             %% -------------------------------------------------------------------------
             % This function generates equality and inequality constraints
             %
@@ -67,52 +66,54 @@ classdef IDassumptions < handle
             nSignRestrictions = obj.countSignRestrictions;
             nZeroRestrictions = obj.countZeroRestrictions;
            
-            n =  objVecAR.getN;
-            G =  objVecAR.getVMADerivatives;
-            VMA    = objVecAR.getVMA_ts_sh_ho;
-            Gcum = cumsum(G,3);
-            VMAcum = cumsum(VMA,3);
-            
-            [nG,mG,~] = size( G);
+            nShock =  objVecAR.getN;
+            G_ts_sh_ho_dAL =  objVecAR.getVMADerivatives_ts_sh_ho_dAL;
+            VMA_ts_sh_ho    = objVecAR.getVMA_ts_sh_ho;
+            Gcum_ts_sh_ho_dAL = cumsum(G_ts_sh_ho_dAL,3);
+            VMAcum_ts_sh_ho = cumsum(VMA_ts_sh_ho,3);
+            dAL = size( G_ts_sh_ho_dAL,4);
             
             %% allocate memory
-            SR = zeros( nSignRestrictions, n); % matrix with sign restrictions
-            ZR = zeros( nZeroRestrictions, n); % matrix with zero restrictions
-            GSR = zeros( nG, mG, nSignRestrictions); % Derivatives of sign restricted IRF
-            GZR = zeros( nG, mG, nZeroRestrictions); % Derivatives of zero restricted IRF
+            SR_nInequalities_sh = zeros( nSignRestrictions, nShock); % matrix with sign restrictions
+            ZR_nEqualities_sh = zeros( nZeroRestrictions, nShock); % matrix with zero restrictions
+            GSR_sh_nInequalities_dAL = zeros( nShock, nSignRestrictions, dAL); % Derivatives of sign restricted IRF
+            GZR_sh_nEqualities_dAL = zeros( nShock, nZeroRestrictions, dAL); % Derivatives of zero restricted IRF
             
             iSR = 0;
             iZR = 0;
             totalNumberOfRestriction = nSignRestrictions+nZeroRestrictions;
 
-            for aRestriction = 1 :totalNumberOfRestriction % loop through all restricions
+            for aRestriction = 1 : totalNumberOfRestriction % loop through all restricions
                 
                 horizon = obj.getHorizonOfaRestriction( aRestriction);
                 isCumulative = obj.aRestrictionIsCumulative( aRestriction);
                 tsOfaRestriction = obj.getTsOfaRestriction( aRestriction);
                 
-                currentIRF = (1-isCumulative) *     VMA( tsOfaRestriction,:, horizon) +...
-                    isCumulative  *  VMAcum(tsOfaRestriction,:,horizon);
+                currentIRF = (1-isCumulative) *     VMA_ts_sh_ho( tsOfaRestriction,:, horizon) +...
+                    isCumulative  *  VMAcum_ts_sh_ho(tsOfaRestriction,:,horizon);
                 
-                currentRestrictionDerivative = (1-isCumulative) *    G(:,:, horizon) +...
-                    isCumulative  * Gcum(:,:,horizon);
+                currentRestrictionDerivative = (1-isCumulative) *    G_ts_sh_ho_dAL(tsOfaRestriction,:, horizon,:) +...
+                    isCumulative  * Gcum_ts_sh_ho_dAL(tsOfaRestriction,:,horizon,:);
                  
                 if  obj.aRestrictionIsEquality( aRestriction)   
                     iZR=iZR+1;
-                    ZR(iZR,:)    = currentIRF;
-                    GZR(:,:,iZR) = currentRestrictionDerivative;
+                    ZR_nEqualities_sh(iZR,:)    = currentIRF;
+                    GZR_sh_nEqualities_dAL(:,iZR,:) = currentRestrictionDerivative;
                 else     
                     iSR=iSR+1;
-                    SR(iSR,:) = obj.convertArestrictionToGeq(aRestriction) * currentIRF;
-                    GSR(:,:,iSR) = obj.convertArestrictionToGeq(aRestriction) * currentRestrictionDerivative;                
+                    SR_nInequalities_sh(iSR,:) = obj.convertArestrictionToGeq(aRestriction) * currentIRF;
+                    GSR_sh_nInequalities_dAL(:,iSR,:) = obj.convertArestrictionToGeq(aRestriction) * currentRestrictionDerivative;                
                 end
             end
+ 
+            GSR_nInequalities_sh_dAL = permute(GSR_sh_nInequalities_dAL,[2,1,3]);
+            GZR_nEqualities_sh_dAL = permute(GZR_sh_nEqualities_dAL,[2,1,3]);
             
             linearConstraintsAndDerivatives = struct(...
-                'GSR',GSR, ...    % G matrix associated with inequality constraints
-                'GZR',GZR, ...    % G matrix associated with   equality constraints
-                'SR',SR, ...   % sign restrictions
-                'ZR',ZR);      % zero restrictions
+                'GSR_nInequalities_sh_dAL',GSR_nInequalities_sh_dAL, ...    % G array associated with inequality constraints
+                'GZR_nEqualities_sh_dAL',GZR_nEqualities_sh_dAL, ...    % G array associated with   equality constraints
+                'SR_nInequalities_sh',SR_nInequalities_sh, ...   % sign restrictions
+                'ZR_nEqualities_sh',ZR_nEqualities_sh);      % zero restrictions
             
         end
     end

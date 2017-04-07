@@ -17,12 +17,26 @@ classdef (Abstract) VecAR
             end;
             
         end
+        
+        function IRFObjectiveFunctions = getIRFObjectiveFunctionsDerivatives(obj)
+            switch (obj.config.cum)
+                case 'cum'
+                    reducedFormIRFnonCum = obj.getVMADerivatives_ts_sh_ho_dAL;
+                    IRFObjectiveFunctions = cumsum(reducedFormIRFnonCum,3);
+                otherwise
+                    IRFObjectiveFunctions = obj.getVMADerivatives_ts_sh_ho_dAL;
+            end;
+            
+        end
+        
+        
         function configHandle = getConfig (obj)
             configHandle = obj.config;
         end
     end
     methods (Abstract)
         getVMA_ts_sh_ho(obj);
+        getVMADerivatives_ts_sh_ho_dAL(obj);
     end
     
     methods (Access = public, Static)
@@ -80,7 +94,7 @@ classdef (Abstract) VecAR
             VMA = [eye(n), C];
             VMA_ts_sh_ho = reshape(VMA,[n,n,(hori+1)]);
         end
-        function G = getVMAderivatives(AL_n_x_np, hori)
+        function G_ts_sh_ho_dAL = getVMAderivatives(AL_n_x_np, hori)
             % -------------------------------------------------------------------------
             % Computes the derivatives of vec(C) wrt vec(A) based on
             % Lütkepohl H. New introduction to multiple time series analysis. ? Springer, 2007.
@@ -99,7 +113,7 @@ classdef (Abstract) VecAR
 
             %% A and J matrices in Lutkepohl's formula for the derivative of C with respect to A
             J = [eye(n), zeros(n,(p-1)*n)];
-            Alutkepohl = [AL_n_x_np; eye(n*(p-1)),zeros(n*(p-1),n)];
+            Alutkepohl = [AL_n_x_np; eye(n*(p-1)), zeros(n*(p-1),n)];
             
             %% AJ is a 3D array that contains A^(k-1) J' in the kth 2D page of the the 3D array
             AJ = zeros(n*p, n, hori);
@@ -115,9 +129,14 @@ classdef (Abstract) VecAR
                 AJaux(((n^2)*(i-1))+1:end,:,i) = kron(JAp(1:n*(hori+1-i),:), VMA_ts_sh_ho(:,:,i));
             end
             Gaux = permute(reshape(sum(AJaux,3)', [(n^2)*p, n^2, hori]), [2,1,3]);
-            G = zeros(size(Gaux,1), size(Gaux,2), size(Gaux,3)+1);
-            G(:,:,2:end) = Gaux;
+            G_tsxsh_dAL_ho = zeros(size(Gaux,1), size(Gaux,2), size(Gaux,3)+1);
+            G_tsxsh_dAL_ho(:,:,2:end) = Gaux;
             
+            G_dAL_ho_tsxsh = permute(G_tsxsh_dAL_ho,[2,3,1]);
+            dAL = size(Gaux,2);
+            MaxHorizon = hori+1;
+            G_dAL_ho_ts_sh = reshape(G_dAL_ho_tsxsh,[dAL,MaxHorizon,n,n]);
+            G_ts_sh_ho_dAL = permute(G_dAL_ho_ts_sh,[3,4,2,1] );
         end
         function [n,p] = getNPfromAL(AL_n_x_np)
             n = size(AL_n_x_np,1);

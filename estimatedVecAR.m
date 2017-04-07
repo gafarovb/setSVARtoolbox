@@ -49,8 +49,8 @@ classdef estimatedVecAR < VecAR
             p = obj.nLags;
             d = n * n * p + n * (n+1) / 2;
         end
-        function thetaCov = getOmega(obj)
-            thetaCov = obj.estimates.getOmega;
+        function OmegaT = getCovarianceOfThetaT(obj)
+            OmegaT = obj.estimates.getOmega / obj.getT ;
         end
         function thetaHat = getTheta(obj)
             thetaHat = obj.estimates.getThetaHat;
@@ -58,7 +58,7 @@ classdef estimatedVecAR < VecAR
         function VMA_ts_sh_ho = getVMA_ts_sh_ho(obj)
             VMA_ts_sh_ho = obj.estimates.getVMA_ts_sh_ho;
         end
-        function G = getVMADerivatives(obj)
+        function G = getVMADerivatives_ts_sh_ho_dAL(obj)
             G = obj.estimates.getVMADerivatives;
         end
         function T = getT(obj)

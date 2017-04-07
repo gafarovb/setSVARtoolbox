@@ -14,7 +14,7 @@ classdef LSestimatesVAR < handle
         
         %% Estimates of IRF
         VMA_ts_sh_ho;           
-        G;            %  G matrix: derivative of vec(C) wrt vec(AL)
+        G_ts_sh_ho_dAL;            %  G matrix: derivative of vec(C) wrt vec(AL)
          
         Omega;      % asymptotic covariance matrix for reduced form coefficients
         Omegainv;   % Block inverse of Omega (assumes homoskedasticity)
@@ -60,7 +60,7 @@ classdef LSestimatesVAR < handle
             Sigma = obj.SigmaHat;
         end
         function G = getVMADerivatives(obj)
-            G = obj.G;
+            G = obj.G_ts_sh_ho_dAL;
         end
 
     end
@@ -82,7 +82,7 @@ classdef LSestimatesVAR < handle
         end
         function obj = computeVMAandDerivatives(obj)
             obj.VMA_ts_sh_ho = VecAR.getVMAfromAL(  obj.ALhat_n_x_np,  configFile.MaxHorizons);
-            obj.G    = VecAR.getVMAderivatives(  obj.ALhat_n_x_np,  configFile.MaxHorizons);
+            obj.G_ts_sh_ho_dAL   = VecAR.getVMAderivatives(  obj.ALhat_n_x_np,  configFile.MaxHorizons);
         end
 
 

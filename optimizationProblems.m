@@ -9,9 +9,11 @@ classdef optimizationProblems < handle
         
         Sigma;
         
-        linearConstraints;
+        linearConstraintsAndDerivatives;
         nInequalities;
         nEqualities;
+        
+        thetaCovarianceT;
         
         config;
     end
@@ -20,8 +22,9 @@ classdef optimizationProblems < handle
         function obj = optimizationProblems( objSVAR)
             obj.config = objSVAR.getConfig;
             obj.Sigma   = objSVAR.getSigma;
+            obj.thetaCovarianceT  = objSVAR.getCovarianceOfThetaT;
             obj.objectiveFunctions = objSVAR.getIRFObjectiveFunctions;
-            obj.linearConstraints =  objSVAR.generateLinearConstraints; 
+            obj.linearConstraintsAndDerivatives =  objSVAR.getLinearConstraintsAndDerivatives; 
             
             obj.subproblems = initializeSubproblems(obj);
             
@@ -54,8 +57,14 @@ classdef optimizationProblems < handle
             end
             
         end
-        function linearConstraints = getLinearConstraints(obj)
-            linearConstraints = obj.linearConstraints;
+        function Sigma = getSigma(obj)
+            Sigma = obj.Sigma;
+        end
+        function OmegaT = getCovarianceOfThetaT(obj)
+            OmegaT = obj.thetaCovarianceT; 
+        end
+        function linearConstraintsAndDerivatives = getLinearConstraintsAndDerivatives(obj)
+            linearConstraintsAndDerivatives = obj.linearConstraintsAndDerivatives;
         end
         function objectiveFunctions = getObjectiveFunctions(obj)
             objectiveFunctions = obj.objectiveFunctions;
@@ -67,10 +76,10 @@ classdef optimizationProblems < handle
             nSubProblems = size( obj.subproblems,2);
         end
         function maxHorizons = getHorizons(obj)
-            maxHorizons = size(obj.objectiveFunctions,3);
+            maxHorizons = size(obj.objectiveFunctions.VMA_ts_sh_ho,3);
         end
         function nShocks = getN(obj)
-            nShocks = size(obj.objectiveFunctions,1);         
+            nShocks = size(obj.objectiveFunctions.VMA_ts_sh_ho,1);         
         end
         function maxBounds = getMaxBounds(obj)
             maxBoundsForSubproblems  =  zeros(obj.getN,obj.getHorizons,obj.countSubproblems);
@@ -82,10 +91,10 @@ classdef optimizationProblems < handle
             maxBounds = max(maxBoundsForSubproblems,[],3);
         end
         function nInequalities = countInequalityRestrictions(obj)
-            nInequalities = size(obj.linearConstraints.SR,1);
+            nInequalities = size(obj.linearConstraintsAndDerivatives.SR_nInequalities_sh,1);
         end
         function nEqualities = countEqualityRestrictions(obj)
-            nEqualities = size(obj.linearConstraints.ZR,1);
+            nEqualities = size(obj.linearConstraintsAndDerivatives.ZR_nEqualities_sh,1);
         end
         function minBounds = getMinBounds(obj)
             minBoundsForSubproblems  = zeros(obj.getN,obj.getHorizons,obj.countSubproblems);
@@ -95,6 +104,15 @@ classdef optimizationProblems < handle
                 minBoundsForSubproblems(:,:,i) = obj.subproblems(i).maxBounds;
             end
             minBounds = min( minBoundsForSubproblems,[],3);
+        end
+        function stdMat = getWorstCaseStdMat(obj)
+            stdMatForSubproblems  = zeros(obj.getN, obj.getHorizons,obj.countSubproblems);
+            nSubProblems = obj.countSubproblems;
+            
+            for i = 1:nSubProblems
+                stdMatForSubproblems(:,:,i) = obj.subproblems(i).asymptoticStandardDeviationForActiveSet;
+            end
+            stdMat = max( stdMatForSubproblems,[],3);
         end
     end
     

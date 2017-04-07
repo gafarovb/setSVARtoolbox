@@ -4,22 +4,19 @@ classdef SVAR
     %       to construct point estimates and conduct inteference on the impulse
     %       response functions (IRF).
     %
-    %       This version: 3.9.2017
+    %       This version: 4.6.2017
     %       Last edited by Bulat Gafarov
     %%
 
     
     properties (Access = public)
         label = 'Unknown' ; % Model label, e.g. MSG 
-        spec ;      % intermediate computations based restrictions.
         ID   =[] ; %% An object with restrictions
-
     end
     
     properties (Access = private)
         optimiaztionProblems;
         VecAR;
-        
     end
         
     methods
@@ -33,198 +30,122 @@ classdef SVAR
             obj.label = config.label;
             obj.ID = IDassumptions( config.assumptionsFilename); % read ID assumptions from a file
             obj.optimiaztionProblems = optimizationProblems( obj);  
-         end
-        
-        %%
-        function maxIRFcollection = onesidedUpperIRFHatAnalytic(obj)
-            maxBoundsMatrix = obj.optimiaztionProblems.getMaxBounds;    
-            maxIRFcollection = IRFcollection(maxBoundsMatrix, obj.VecAR.getNames, 'max point estimates') ;
-        end
-        function minIRFcollection = onesidedLowerIRFHatAnalytic(obj)
-            minBoundsMatrix = obj.optimiaztionProblems.getMinBounds;    
-            minIRFcollection = IRFcollection(minBoundsMatrix, obj.VecAR.getNames, 'min point estimates') ;
-        end        
+        end     
         function config = getConfig(obj)
             config = obj.VecAR.getConfig;
-        end
-        function Sigma = getSigma(obj)
-            Sigma = obj.VecAR.getSigma;
-        end
-        function objFunMat = getIRFObjectiveFunctions(obj)
-            objFunMat = obj.VecAR.getIRFObjectiveFunctions;
         end
         function nShocks = getN(obj)
             nShocks = obj.VecAR.getN;
         end
-        function linearConstraints = generateLinearConstraints(obj)
-            linearConstraints = obj.ID.generateLinearConstraints(obj.VecAR);
+        function linearConstraintsAndDerivatives = getLinearConstraintsAndDerivatives(obj)
+            linearConstraintsAndDerivatives = obj.ID.getLinearConstraintsAndDerivatives(obj.VecAR);
         end
-        
-        function IRFcol     = onesidedIRFCSAnalytic(obj,minmax,level)
-            %% baseline analytical algorithm in GM 2014
-            
-            [~, pointEstimates]  = onesidedIRFHatAnalytic(obj,minmax);
-            switch(minmax)
-                case 'min'
-                    IRFmatrix = pointEstimates.Value - stdIRF(obj,pointEstimates) * norminv(level,0,1);
-                case 'max'
-                    IRFmatrix = pointEstimates.Value + stdIRF(obj,pointEstimates) * norminv(level,0,1);
-                otherwise
-                    error('Choose min or max');
-            end;
-            IRFmatrix = enforceIRFRestrictions(obj,IRFmatrix) ;
-            IRFcol    = IRFcollection(IRFmatrix,obj.names,[minmax,' analytic CS with p=',num2str(level)]);
-        end   
-        function objSimulated = resampleTheta(obj,seedMC)
-            objSimulated = resampleTheta@VecAR(obj,seedMC);
-            objSimulated = objSimulated.separateSandZ; 
+        function OmegaT = getCovarianceOfThetaT(obj)
+           OmegaT = obj.VecAR.getCovarianceOfThetaT; 
         end
-        function cumOrNot = cum(obj)
-            cumOrNot = obj.config.cum;
+        function Sigma = getSigma(obj)
+            Sigma = obj.VecAR.getSigma;
         end
         function restMat = getRestMat(obj)
-           restMat = obj.ID.getRestMat;
+            restMat = obj.ID.getRestMat;
         end
-        
-        
+        function objectiveFunctions = getIRFObjectiveFunctions(obj)
+            objectiveFunMat = obj.VecAR.getIRFObjectiveFunctions;
+            objectiveFunDerivatives = obj.VecAR.getIRFObjectiveFunctionsDerivatives;
+            objectiveFunctions = struct(...
+            'VMA_ts_sh_ho',objectiveFunMat,...
+            'DVMA_ts_sh_ho_dAL',objectiveFunDerivatives);
+        end
+        function stdIRFcollection = asymptoticStdDeviations(obj)
+           stdMat = obj.optimiaztionProblems.getWorstCaseStdMat;
+           stdIRFcollection = IRFcollection(stdMat, obj.VecAR.getNames, 'standard deviatons') ;
+        end
+        function IRFcollection = enforceIRFRestrictions(SVARobj,IRFcollection)
+            %% This function enforces sign and zero restrictions specified in SVARobj
+            %  on IRF
+            %
+            % last modified : March 15 2017
+            % by Bulat Gafarov
+            
+            %% read variables from the input objects
+            nShocks = SVARobj.getN;
+            restMat = SVARobj.getRestMat;
+            nRestrictions = size(restMat,1);
+            config = SVARobj.getConfig;
+            MaxHorizons = config.MaxHorizons;
+            
+            %% allocate memory
+            restrictedBelow = false(nShocks,MaxHorizons+1);
+            restrictedAbove = false(nShocks,MaxHorizons+1);
+            
+            for i = 1:nRestrictions
+                iVariable        = restMat(i,1);
+                iHorizon         = restMat(i,2)+1;
+                iRestrictionType = restMat(i,3);
+                switch iRestrictionType
+                    case 0
+                        restrictedBelow(iVariable,iHorizon) = true;
+                        restrictedAbove(iVariable,iHorizon) = true;
+                    case 1
+                        restrictedBelow(iVariable,iHorizon) = true;
+                    case -1
+                        restrictedAbove(iVariable,iHorizon) = true;
+                    otherwise
+                        ME = MException('enforceIRFRestrictions:incorrectRestriction', ...
+                            'Unknown restiction type: %d',iRestrictionType);
+                        throw(ME)
+                end
+            end
+            
+            IRFmat = IRFcollection.matrixForm;
+            IRFmat(restrictedAbove) = min(0,IRFmat(restrictedAbove));
+            IRFmat(restrictedBelow) = max(0,IRFmat(restrictedBelow));
+            IRFcollection = IRFcollection.setValues(IRFmat); 
+        end
+    end
+    
+    methods (Access = public)
+        function maxIRFcollection = onesidedUpperIRFHatAnalytic(obj)
+            maxBoundsMatrix = obj.optimiaztionProblems.getMaxBounds;
+            maxIRFcollection = IRFcollection(maxBoundsMatrix, obj.VecAR.getNames, 'max point estimates') ;
+        end
+        function minIRFcollection = onesidedLowerIRFHatAnalytic(obj)
+            minBoundsMatrix = obj.optimiaztionProblems.getMinBounds;
+            minIRFcollection = IRFcollection(minBoundsMatrix, obj.VecAR.getNames, 'min point estimates') ;
+        end
+        function confidenceBounds = onesidedUpperIRFCSAnalytic(obj,level)
+             
+            pointEstimates = obj.onesidedUpperIRFHatAnalytic;
+            
+            stdIRF =  obj.asymptoticStdDeviations ;
+            
+            confidenceBounds = pointEstimates +  norminv(level,0,1) * stdIRF  ;
+            
+            confidenceBounds = obj.enforceIRFRestrictions(confidenceBounds) ;
+            
+            confidenceBounds = confidenceBounds.setLabel(['analytic upper one-sided CS with p=',num2str(level)]);
+        end
+        function confidenceBounds = onesidedLowerIRFCSAnalytic(obj,level)
+            
+            pointEstimates = obj.onesidedLowerIRFHatAnalytic;
+            
+            stdIRF =  obj.asymptoticStdDeviations ;
+            
+            confidenceBounds = pointEstimates - norminv(level,0,1) * stdIRF  ;
+            
+            confidenceBounds = obj.enforceIRFRestrictions(confidenceBounds) ;
+            
+            confidenceBounds = confidenceBounds.setLabel(['analytic lower one-sided CS with p=',num2str(level)]);
+        end
+    end
+    
+    methods  % dead methods code
+        function objSimulated = resampleTheta(obj,seedMC)
+            objSimulated = resampleTheta@VecAR(obj,seedMC);
+            objSimulated = objSimulated.separateSandZ;
+        end
     end
     
 end
+ 
 
-%--------------- Folder ./funcSForm -----------------------
-
-
-function [CV] = stdIRF(SVARobj,solution)
-
-
-% -------------------------------------------------------------------------
-% Computes the level-% upper confidence band for the max impulse using
-% the Delta-Method.
-%
-% Inputs:
-% Outputs
-% -------------------------------------------------------------------------
-
-
-%% Read input structure
-cum   = SVARobj.cum;
-Bound = solution.Value; % lower or upper bounds for every TS/horizon
-Hin   = solution.arg;   % argmax vectors for every TS/horizon
-valAr = solution.valAr; %
-
-
-% Simple or cumulative IRF
-switch(cum)
-    case 'cum'
-        C = SVARobj.Ccum; % fixme , do not use C and G
-        G = SVARobj.Gcum;
-    otherwise
-        C = SVARobj.C;
-        G = SVARobj.G;
-end;
-Sigma = SVARobj.Sigma;
-Omega = SVARobj.Omega;
-vecFromVech  = SVARobj.vecFromVech;
-T     = SVARobj.T;
-d     = SVARobj.d;
-spec  = SVARobj.spec;
-
-
-
-%% Definitons
-n    = size(C,1);
-hori = size(C,2)/n;
-C    = [eye(n),C];
-C    = reshape(C,[n,n,(hori+1)]);
-e    = eye(n);
-sigmaInv = Sigma^(-1);
-nComb = size(valAr,3);
-
-
-%% allocate memory
-CV  =  zeros(n,hori+1);
-
-
-
-
-%% compute std errors using Delta method
-for m=1:n
-    for t=1:hori+1
-        
-        CVlong = zeros(nComb,1);
-        
-        for j=1:nComb
-            %% TODO
-            H = Hin(:,m,t) ; %%% THIS IS WRONG.
-            B = Bound(m,t);
-            
-            %% compute adjustment for non-contemporaneous restrictions
-            maskActIneq = (spec.Ziq'*H<1e-5);
-            Zact = [spec.Ziq(:,maskActIneq)';spec.Zeq'];
-            Eact = [spec.eiq(:,maskActIneq)  spec.eeq ];
-            Gact = cat(3, spec.Giq(:,:,maskActIneq'), spec.Geq);
-            w = (Zact * Sigma *  Zact')\Zact * Sigma *C(:,:,t)'*e(:,m);
-            adjustment = 0;
-            for iz=1:size(w)
-                adjustment = adjustment - w(iz)*kron(H',Eact(:,iz)')*Gact(:,:,iz);
-            end
-            
-            %% gradient of parameter vector theta
-            Grad = [kron(H',e(:,m)')*G(:,:,t)+adjustment,...
-                (B/2)*(kron(H'*sigmaInv, H'*sigmaInv))*vecFromVech];
-            
-            %% gradient of argmax
-            CVlong(j) = abs((Grad*Omega*Grad')^.5)/(T^.5);
-            
-        end
-        
-        CV(m,t) = max(CVlong);
-        
-    end
-end
-
-CV(isnan(CV)) = 0 ; % report 0 if an error has happend
-
-
-end
-
-function IRF = enforceIRFRestrictions(SVARobj,IRF)
-%% This function enforces sign and zero restrictions specified in SVARobj
-%  on IRF
-%
-% last modified : March 15 2017
-% by Bulat Gafarov
-
-%% read variables from the input objects
-nShocks = SVARobj.n;
-restMat = SVARobj.ID.getRestMat;
-nRestrictions = size(restMat,1);
-MaxHorizons = SVARobj.config.MaxHorizons;
-
-%% allocate memory
-restrictedBelow = false(nShocks,MaxHorizons+1);
-restrictedAbove = false(nShocks,MaxHorizons+1);
-
-for i = 1:nRestrictions
-    iVariable        = restMat(i,1);
-    iHorizon         = restMat(i,2)+1;
-    iRestrictionType = restMat(i,3);
-    switch iRestrictionType
-        case 0
-            restrictedBelow(iVariable,iHorizon) = true;
-            restrictedAbove(iVariable,iHorizon) = true;
-        case 1
-            restrictedBelow(iVariable,iHorizon) = true;
-        case -1
-            restrictedAbove(iVariable,iHorizon) = true;
-        otherwise
-            ME = MException('enforceIRFRestrictions:incorrectRestriction', ...
-                'Unknown restiction type: %d',iRestrictionType);
-            throw(ME)
-    end
-end
-
-IRF(restrictedAbove) = min(0,IRF(restrictedAbove));
-IRF(restrictedBelow) = max(0,IRF(restrictedBelow));
-
-end
