@@ -4,7 +4,7 @@ classdef mcExperiment
     %   Detailed explanation goes here
     
     properties
-        Design;                  % SVAR object with design
+        design;                  % SVAR object with design
         Samples;                 % Array of SVAR objects with generated samples
     end
     
@@ -14,15 +14,17 @@ classdef mcExperiment
     
     methods
         function obj = mcExperiment(SVARobj)
-            obj.Design = SVARobj;
-            obj.config = configSVAR;
+            obj.design = SVARobj;
+            obj.config = obj.design.getConfig;
+           
             rng('default');
             rng(obj.config.masterSeed,'twister');
             seedVector = randi(1e7,obj.config.MaxSimulations); % controls random number generation.
-            for iMC=1:obj.config.MaxSimulations
-                Samples(iMC) = SVARobj.resampleTheta(seedVector(iMC));
+            for iMC = 1:obj.config.MaxSimulations
+                sampleVecAR = simulatedVecAR(seedVector(iMC), obj.design); 
+                Samples(iMC) = SVAR(sampleVecAR);
             end
-            obj.Samples=Samples;
+            obj.Samples = Samples;
         end
         function coverage = testCS(obj)
             % test coverage ??

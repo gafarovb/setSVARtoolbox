@@ -12,7 +12,7 @@ classdef configFile < handle
         
         %% reduced var
         MaxHorizons = 23;      % the number of horizons to compute the IRF
-        scedasticity = 'homo';      % 'homo' = homoscedastic Omega, 'hetero' = heteroscedastic Omega
+        scedasticity = 'homo'; % 'homo' = homoscedastic Omega, 'hetero' = heteroscedastic Omega
         babn1 = 1000;          % bab: number of bootstrap samples before bias correction
         babn2 = 1000;          % bab: number of bootstrap samples after  bias correction
    

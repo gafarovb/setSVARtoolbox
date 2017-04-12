@@ -9,8 +9,6 @@ classdef converter
             %
             % Inputs:
             % - n: number of variables
-            % Outputs:
-            % - vecFromVech: auxiliary matrix
             %
             % This version: February 24, 2015
             % -------------------------------------------------------------------------

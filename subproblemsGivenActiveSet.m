@@ -59,7 +59,7 @@ classdef subproblemsGivenActiveSet < handle
                 SigmaProjected = sigmaSqrt*sigmaSqrt ;
             end
         end
-        function obj = computeKKTpointsAndValues(obj)
+        function  obj = computeKKTpointsAndValues(obj)
             
             sigmaM = obj.getProjectedSigma;
             objectiveFunctionsAndDerivatives = obj.fullProblem.getObjectiveFunctions;

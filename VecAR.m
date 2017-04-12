@@ -29,7 +29,6 @@ classdef (Abstract) VecAR
             
         end
         
-        
         function configHandle = getConfig (obj)
             configHandle = obj.config;
         end
@@ -37,8 +36,13 @@ classdef (Abstract) VecAR
     methods (Abstract)
         getVMA_ts_sh_ho(obj);
         getVMADerivatives_ts_sh_ho_dAL(obj);
+        getSigma(obj);
+        getN(obj);
+        getTheta(obj);
+        getNames(obj);
+        getCovarianceOfThetaT(obj);
     end
-    
+ 
     methods (Access = public, Static)
         function theta = thetaFromALSigma(AL_n_x_np,Sigma)
             %% this funciton computes the vector of the reduced form parameters, theta vector
@@ -166,7 +170,17 @@ classdef (Abstract) VecAR
             
             
         end
+        function [AL_n_x_np,Sigma] =  ALSigmaFromThetaNandP(theta,nShocks,nLags) 
+            dAL = nShocks*nShocks*nLags;
+            vecAL = theta(1:dAL);
+            AL_n_x_np  = reshape(vecAL,[nShocks, nShocks*nLags] );
+            
+            vechSigma = theta((dAL+1):end);
+            vecFromVech = converter.getVecFromVech(nShocks);
 
+            vecSigma =  vecFromVech * vechSigma;
+            Sigma = reshape(vecSigma,[nShocks,nShocks]);
+        end
 
     end
     
