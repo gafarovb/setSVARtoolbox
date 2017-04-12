@@ -12,6 +12,7 @@ classdef SVAR
     properties (Access = public)
         label = 'Unknown' ; % Model label, e.g. MSG 
         ID   =[] ; %% An object with restrictions
+        % erase me
     end
     
     properties (Access = private)
