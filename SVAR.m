@@ -45,6 +45,7 @@ classdef SVAR
         function OmegaT = getCovarianceOfThetaT(obj)
            OmegaT = obj.VecARmodel.getCovarianceOfThetaT; 
         end
+        
         function Sigma = getSigma(obj)
             Sigma = obj.VecARmodel.getSigma;
         end
@@ -116,10 +117,13 @@ classdef SVAR
         function maxIRFcollection = onesidedUpperIRFHatAnalytic(obj)
             maxBoundsMatrix = obj.optimiaztionProblems.getMaxBounds;
             maxIRFcollection = IRFcollection(maxBoundsMatrix, obj.VecARmodel.getNames, 'max point estimates') ;
+            maxIRFcollection = obj.enforceIRFRestrictions(maxIRFcollection) ;
+
         end
         function minIRFcollection = onesidedLowerIRFHatAnalytic(obj)
             minBoundsMatrix = obj.optimiaztionProblems.getMinBounds;
             minIRFcollection = IRFcollection(minBoundsMatrix, obj.VecARmodel.getNames, 'min point estimates') ;
+            minIRFcollection = obj.enforceIRFRestrictions(minIRFcollection) ;
         end
         function confidenceBounds = onesidedUpperIRFCSAnalytic(obj,level)
              

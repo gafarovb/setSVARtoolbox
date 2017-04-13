@@ -7,8 +7,8 @@ classdef simulatedVecAR < VecAR
         simulationSeed = []; % seedMC: seed for a given MC sample
         theta = [];
         thetaCovT = [];
-        nShocks =[];
-        namesOfTS=[];
+        nShocks = [];
+        namesOfTS = [];
      end
     
     methods
@@ -19,9 +19,7 @@ classdef simulatedVecAR < VecAR
                 obj.config = design.getConfig;
                 obj.nLags = obj.config.nLags ;
                 obj.nShocks = design.getN;
-                
                 obj = generateThetaFromNormal(obj,design);
-                
             end
         end
         function nShocks = getN(obj)

@@ -17,7 +17,6 @@ classdef (Abstract) VecAR
             end;
             
         end
-        
         function IRFObjectiveFunctions = getIRFObjectiveFunctionsDerivatives(obj)
             switch (obj.config.cum)
                 case 'cum'
@@ -28,7 +27,6 @@ classdef (Abstract) VecAR
             end;
             
         end
-        
         function configHandle = getConfig (obj)
             configHandle = obj.config;
         end
@@ -41,6 +39,7 @@ classdef (Abstract) VecAR
         getTheta(obj);
         getNames(obj);
         getCovarianceOfThetaT(obj);
+        
     end
  
     methods (Access = public, Static)

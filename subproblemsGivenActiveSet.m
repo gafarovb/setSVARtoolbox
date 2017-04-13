@@ -142,37 +142,47 @@ classdef subproblemsGivenActiveSet < handle
             stdMat = zeros(nShocks,maxHorizons);
             
             
-            vechFromVec = converter.getVechFromVec(nShocks);   
+            vechFromVec = converter.getVechFromVec(nShocks);
+            wFromC = (Zactive * Sigma *  Zactive')\Zactive * Sigma;
             for ts = 1:nShocks
                 for ho = 1 : maxHorizons
-                    wStarForTsHo_nSZ = (Zactive * Sigma *  Zactive')\Zactive * Sigma * C_ts_sh_ho(ts,:,ho)';
+                    wStarForTsHo_nSZ = wFromC * C_ts_sh_ho(ts,:,ho)';
                     
-                    for iAL = 1:dAL
-                        restrictionsDerivativeAL(ts,ho,iAL) = wStarForTsHo_nSZ' *  Gactive_nSZ_sh_dAL(:,:,iAL) * xStar_sh_ts_ho(:,ts,ho);
-                        objFunctionDerivativeAL(ts,ho,iAL)  = G_ts_sh_ho_dAL(ts,:,ho,iAL) * xStar_sh_ts_ho(:,ts,ho);
-                    end
+                    wG_sh_dAL = obj.vectorDotTensor(wStarForTsHo_nSZ',  Gactive_nSZ_sh_dAL);
+                    restrictionsDerivativeAL(ts,ho,:) = xStar_sh_ts_ho(:,ts,ho)'* wG_sh_dAL;
+                    
+                    GforTsHo_sh_dAL =  reshape(G_ts_sh_ho_dAL(ts,:,ho,:),[nShocks,dAL]);
+                    objFunctionDerivativeAL(ts,ho,:) = GforTsHo_sh_dAL' * xStar_sh_ts_ho(:,ts,ho);
+                    
+                    GradAL = objFunctionDerivativeAL(ts,ho,:) - restrictionsDerivativeAL(ts,ho,:);
+                    GradAL = reshape(GradAL,[dAL,1]);
+                    
                     sigmaInvx = Sigma \ xStar_sh_ts_ho(:,ts,ho);
    
                     GradvechSigma =  vechFromVec * (val_ts_ho(ts,ho)/2) * kron(sigmaInvx, sigmaInvx) ;
             
-                    GradAL = objFunctionDerivativeAL(ts,ho,:) - restrictionsDerivativeAL(ts,ho,:);
-                    
-                    Grad =  [squeeze(GradAL);GradvechSigma]';
-                     
-                    
-                    stdMat(ts,ho) = abs((Grad*OmegaT*Grad')^.5);
+                    Grad =  [GradAL; GradvechSigma]';
+                      
+                    stdMat(ts,ho) = abs(sqrt(Grad*OmegaT*Grad'));
 
                 end
             end
-            
-            
-            
-            
- 
-            
-            
+
         end
+        
+       
     end
-    
+    methods (Static)
+         function productTensor = vectorDotTensor(rowVector, tensor)
+           shapeVectorInput = size(tensor); 
+           nRows = shapeVectorInput(1);
+           shapeVectorOutput =shapeVectorInput(2:end);
+           nCols = prod( shapeVectorOutput);
+
+           matrixForm = reshape(tensor,[nRows,nCols]);
+           productVector = rowVector * matrixForm;
+           productTensor = reshape(productVector,shapeVectorOutput);
+        end 
+    end
 end
 

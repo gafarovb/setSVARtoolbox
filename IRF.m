@@ -27,23 +27,23 @@ classdef IRF
         end
         function obj = plus(obj1,obj2)
             [obj,a,b] = genericOperation(obj1,obj2);
-             obj.setValues(a + b);
+             obj = obj.setValues(a + b);
         end
         function obj = mtimes(obj1,obj2)
             [obj,a,b] = genericOperation(obj1,obj2);
-            obj.setValues(a.*b);
+            obj = obj.setValues(a.*b);
         end
         function obj = minus(obj1,obj2)
             [obj,a,b] = genericOperation(obj1,obj2);
-            obj.setValues(a - b);
+            obj = obj.setValues(a - b);
         end
         function obj = le(obj1,obj2)
             [obj,a,b] = genericOperation(obj1,obj2);
-            obj.setValues(logical(a <= b));
+            obj = obj.setValues(logical(a <= b));
         end
         function obj = ge(obj1,obj2)
             [obj,a,b] = genericOperation(obj1,obj2);
-            obj.setValues(logical(a >= b));
+            obj = obj.setValues(logical(a >= b));
         end
         function obj = setValues(obj,values)
             obj.Values = values;

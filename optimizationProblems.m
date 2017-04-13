@@ -14,6 +14,7 @@ classdef optimizationProblems
         nEqualities;
         
         thetaCovarianceT;
+        SigmaSqrt = [];
         
         config;
     end
@@ -22,6 +23,8 @@ classdef optimizationProblems
         function obj = optimizationProblems( objSVAR)
             obj.config = objSVAR.getConfig;
             obj.Sigma   = objSVAR.getSigma;
+            obj = obj.setSQRTSigma;
+            
             obj.thetaCovarianceT  = objSVAR.getCovarianceOfThetaT;
             obj.objectiveFunctions = objSVAR.getIRFObjectiveFunctions;
             obj.linearConstraintsAndDerivatives =  objSVAR.getLinearConstraintsAndDerivatives; 
@@ -29,8 +32,15 @@ classdef optimizationProblems
             obj.subproblems = initializeSubproblems(obj);
             
         end
+        function obj = setSQRTSigma(obj)
+             obj.SigmaSqrt = (obj.Sigma)^(1/2);
+        end
         function SigmaSqrt = getSQRTSigma(obj)
-            SigmaSqrt = (obj.Sigma)^(1/2);    %Sigma^(1/2) is the symmetric sqrt of Sigma.
+            if isempty(obj.SigmaSqrt)
+                SigmaSqrt = (obj.Sigma)^(1/2);    %Sigma^(1/2) is the symmetric sqrt of Sigma.
+            else
+                SigmaSqrt = obj.SigmaSqrt;
+            end
         end
         function subProblems = initializeSubproblems(obj)
             degreesOfFreedom = obj.getN-obj.countEqualityRestrictions-1;
