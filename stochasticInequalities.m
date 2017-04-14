@@ -51,7 +51,7 @@ classdef stochasticInequalities
             
             Residual = obj.originalSample.computeEqualityResidualAtSphericalGridPoint(gridPoint);
             ResidualStandardized = Residual./std(resampledResidual);
-            mmm = obj.modifiedMethodOfMoments( ResidualStandardized, SlackStandardized(activeSet))
+            mmm = obj.modifiedMethodOfMoments( ResidualStandardized, SlackStandardized(activeSet));
 
             resampledSlackActive = bootstrapSample(resampledSlack.values(activeSet,:));
             quantileMMM = obj.computeQuantileOfModifiedMethodOfMoments(resampledResidual,resampledSlackActive, level)  ;
