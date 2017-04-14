@@ -19,23 +19,13 @@ classdef mcExperiment < handle
     methods
         function obj = mcExperiment(SVARobj)
             obj.design = SVARobj;
-            obj.config = obj.design.getConfig;
-            obj = obj.generateSamplesFromAsymptoticDistribution;
+            obj.config = SVARobj.getConfig;
+            obj.samples = SVARobj.generateSamplesFromAsymptoticDistribution(obj.getNumberOfSimulations);
         end     
         function MaxSimulations = getNumberOfSimulations(obj)
             MaxSimulations = obj.config.MaxSimulations;
         end
-        function obj = generateSamplesFromAsymptoticDistribution(obj)
-            rng('default');
-            rng(obj.config.masterSeed,'twister');
-            seedVector = randi( 1e7, obj.getNumberOfSimulations); % controls random number generation.
-            for i = 1 : obj.getNumberOfSimulations
-                sampleVecAR = simulatedVecAR(seedVector(i), obj.design);
-                Samples(i) = SVAR(sampleVecAR);
-                obj.MCwaitBar(i);
-            end
-            obj.samples = Samples;
-        end
+
         function  testCoverageOnesidedUpperIRFCSAnalytic(obj,nominalLevel)
             H0_upperBounds = obj.design.onesidedUpperIRFHatAnalytic;
             nShocks = size(H0_upperBounds,2);

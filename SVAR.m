@@ -12,6 +12,8 @@ classdef SVAR
     properties (Access = public)
         label = 'Unknown' ; % Model label, e.g. MSG 
         ID   =[] ; %% An object with restrictions
+                momentInequalities;
+
      end
     
     properties (Access = private)
@@ -39,13 +41,15 @@ classdef SVAR
         function nShocks = getN(obj)
             nShocks = obj.VecARmodel.getN;
         end
+        function nTimePeriods = getT(obj)
+            nTimePeriods = obj.VecARmodel.getT;
+        end
         function linearConstraintsAndDerivatives = getLinearConstraintsAndDerivatives(obj)
             linearConstraintsAndDerivatives = obj.ID.getLinearConstraintsAndDerivatives(obj.VecARmodel);
         end
         function OmegaT = getCovarianceOfThetaT(obj)
            OmegaT = obj.VecARmodel.getCovarianceOfThetaT; 
         end
-        
         function Sigma = getSigma(obj)
             Sigma = obj.VecARmodel.getSigma;
         end
@@ -111,6 +115,29 @@ classdef SVAR
         function names = getNamesOfTS(obj)
             names = obj.VecARmodel.getNames;
         end
+        function slack = computeInequlaitySlackAtSphericalGridPoint(obj,gridpoint)
+            Sigma = obj.getSigma;
+            xStar = chol(Sigma) * gridpoint;
+            linearConstraintsAndDerivatives =  obj.getLinearConstraintsAndDerivatives;
+            slack = linearConstraintsAndDerivatives.SR_nInequalities_sh * xStar;
+        end
+        function residual = computeEqualityResidualAtSphericalGridPoint(obj,gridpoint)
+            Sigma = obj.getSigma;
+            xStar = chol(Sigma) * gridpoint;
+            linearConstraintsAndDerivatives =  obj.getLinearConstraintsAndDerivatives;
+            residual = linearConstraintsAndDerivatives.ZR_nEqualities_sh * xStar;
+        end
+        function Samples = generateSamplesFromAsymptoticDistribution(obj,nSimulations)
+            rng('default');
+            config = obj.getConfig;
+            rng(config.masterSeed,'twister');
+            seedVector = randi( 1e7, nSimulations); % controls random number generation.
+            for i = 1 : nSimulations
+                sampleVecAR = simulatedVecAR(seedVector(i), obj);
+                Samples(i) = SVAR(sampleVecAR);
+            end
+             
+        end
     end
     
     methods (Access = public)
@@ -148,6 +175,11 @@ classdef SVAR
             confidenceBounds = obj.enforceIRFRestrictions(confidenceBounds) ;
             
             confidenceBounds = confidenceBounds.setLabel(['analytic lower one-sided CS with p=',num2str(level)]);
+        end
+        
+        
+        function obj = setMomentInequalities(obj)
+            obj.momentInequalities = stochasticInequalities(obj) ;
         end
     end
     
