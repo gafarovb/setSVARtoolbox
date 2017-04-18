@@ -3,7 +3,7 @@ classdef multivariateTimeSeries < handle
     %   Detailed explanation goes here
     
     properties (Access = private )
-        labelsOfTimeSeries = [];  
+        labelsOfTimeSeries = [];
         tsInColumns = [] ;
         configuration;
     end
@@ -11,11 +11,11 @@ classdef multivariateTimeSeries < handle
     methods
         function obj = multivariateTimeSeries
             obj.configuration = configFile;
-
+            
             obj.tsInColumns  = csvread(obj.configuration.dataFilenameCSV,1);
             obj.tsInColumns  = obj.configuration.prepareRawData(obj.tsInColumns);
             
-            obj.labelsOfTimeSeries = readCSVheader(obj.configuration.dataFilenameCSV,obj.countTS);
+            obj.labelsOfTimeSeries = obj.readCSVheader(obj.configuration.dataFilenameCSV,obj.countTS);
         end
         function n = countTS(obj)
             [~,n] = size( obj.tsInColumns);
@@ -28,18 +28,20 @@ classdef multivariateTimeSeries < handle
             availableT = size(Y,1);
             laggedY = lagmatrix(obj.tsInColumns,1:1:nLags);
             
-            X = [ones(availableT,1), laggedY((nLags+1):end,:)];    %The rows of this matrix are [1,X_{t}'] 
+            X = [ones(availableT,1), laggedY((nLags+1):end,:)];    %The rows of this matrix are [1,X_{t}']
         end
         function names = getNames(obj)
             names = obj.labelsOfTimeSeries;
         end
     end
-
+    methods (Static)
+        function firstRow = readCSVheader(dataFilenameCSV,nColumns)
+            fid       = fopen(dataFilenameCSV);
+            firstRow = textscan(fid,[repmat('%[^,],',1,nColumns-1) '%[^,\r\n]'], 1);
+            fclose(fid);
+        end
+    end
 end
 
-function firstRow = readCSVheader(dataFilenameCSV,nColumns)
-fid       = fopen(dataFilenameCSV);
-firstRow = textscan(fid,[repmat('%[^,],',1,nColumns-1) '%[^,\r\n]'], 1);
-fclose(fid);
-end
+
 

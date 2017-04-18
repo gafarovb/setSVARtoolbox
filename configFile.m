@@ -23,7 +23,7 @@ classdef configFile < handle
         AndrewsSoaresKappa0 = 1.96;
         noiseStdToAvoidDeterministicConstraints = 1e-6;
         bonferroniStep1 = 0.5; 
-        nGridPoints = 100;
+        nGridPoints = 10;
         nBootstrapSamples = 100;
         
         %% Specify shock

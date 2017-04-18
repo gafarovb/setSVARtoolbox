@@ -1,11 +1,7 @@
-classdef IRFcollection < IRF 
+classdef IRFcollection < IRF
     %IRFCOLLECTION Summary of this class goes here
     %   Detailed explanation goes here
-    
-    properties
-        
-    end
-    
+      
     methods
         function  obj = IRFcollection(IRFmatrix,names,label)
             if nargin ~= 0
@@ -17,6 +13,12 @@ classdef IRFcollection < IRF
                     obj(i).labelTS = names(i);
                     obj(i).label = label;
                 end
+            end
+        end
+        function  obj = setValues(obj,values)
+            nElements = size(obj,2);
+            for i = 1 : nElements
+                obj(i).Values=values(i,:);
             end
         end
         function  obj = setLabel(obj, label)
@@ -36,12 +38,7 @@ classdef IRFcollection < IRF
         function  d = double(obj)
             d = obj.matrixForm;
         end
-        function  obj = setValues(obj,values)
-            nElements = size(obj,2);
-            for i = 1 : nElements
-                obj(i).Values=values(i,:);
-            end
-        end
+        
     end
     
 end

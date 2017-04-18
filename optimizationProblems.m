@@ -1,4 +1,4 @@
-classdef optimizationProblems
+classdef optimizationProblems  < handle
     %OPTIMIZATIONPROBLEMS Summary of this class goes here
     %   Detailed explanation goes here
     
@@ -30,7 +30,6 @@ classdef optimizationProblems
             obj.linearConstraintsAndDerivatives =  objSVAR.getLinearConstraintsAndDerivatives; 
             
             obj.subproblems = initializeSubproblems(obj);
-            
         end
         function obj = setSQRTSigma(obj)
              obj.SigmaSqrt = (obj.Sigma)^(1/2);

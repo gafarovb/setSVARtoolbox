@@ -148,7 +148,7 @@ classdef subproblemsGivenActiveSet < handle
                 for ho = 1 : maxHorizons
                     wStarForTsHo_nSZ = wFromC * C_ts_sh_ho(ts,:,ho)';
                     
-                    wG_sh_dAL = obj.vectorDotTensor(wStarForTsHo_nSZ',  Gactive_nSZ_sh_dAL);
+                    wG_sh_dAL = tensorOperations.vectorDotTensor(wStarForTsHo_nSZ',  Gactive_nSZ_sh_dAL);
                     restrictionsDerivativeAL(ts,ho,:) = xStar_sh_ts_ho(:,ts,ho)'* wG_sh_dAL;
                     
                     GforTsHo_sh_dAL =  reshape(G_ts_sh_ho_dAL(ts,:,ho,:),[nShocks,dAL]);
@@ -172,17 +172,6 @@ classdef subproblemsGivenActiveSet < handle
         
        
     end
-    methods (Static)
-         function productTensor = vectorDotTensor(rowVector, tensor)
-           shapeVectorInput = size(tensor); 
-           nRows = shapeVectorInput(1);
-           shapeVectorOutput =shapeVectorInput(2:end);
-           nCols = prod( shapeVectorOutput);
 
-           matrixForm = reshape(tensor,[nRows,nCols]);
-           productVector = rowVector * matrixForm;
-           productTensor = reshape(productVector,shapeVectorOutput);
-        end 
-    end
 end
 
