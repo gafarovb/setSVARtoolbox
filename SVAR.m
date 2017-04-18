@@ -10,13 +10,13 @@ classdef SVAR < handle
     
     
     properties (Access = public)
-        label = 'Unknown' ; % Model label, e.g. MSG
+        label = 'Unknown'; % Model label, e.g. MSG
     end
     
     properties (Access = private)
         optimiaztionProblems = [];
-        VecARmodel;
-        momentInequalities;
+        VecARmodel  = [];
+        momentInequalities  = [];  
         ID = [] ; %% An object with restrictions
     end
     
@@ -28,7 +28,7 @@ classdef SVAR < handle
                 obj.VecARmodel = estimatedVecAR; % create a reduced form VAR model
             end
             config = obj.getConfig;
-            obj.label = config.label;
+            obj.label = config.SVARlabel;
             obj.ID = IDassumptions( config.assumptionsFilename); % read ID assumptions from a file
         end
         function Samples = generateSamplesFromAsymptoticDistribution(obj,nSimulations)
@@ -36,7 +36,7 @@ classdef SVAR < handle
             config = obj.getConfig;
             rng(config.masterSeed,'twister');
             seedVector = randi( 1e7, nSimulations); % controls random number generation.
-            Samples(nSimulations)=SVAR;
+            Samples(nSimulations)=SVAR; % preallocate memory
             for i = 1 : nSimulations
                 sampleVecAR = simulatedVecAR(seedVector(i), obj);
                 Samples(i) = SVAR(sampleVecAR);

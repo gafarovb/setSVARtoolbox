@@ -9,8 +9,8 @@ classdef multivariateTimeSeries < handle
     end
     
     methods
-        function obj = multivariateTimeSeries
-            obj.configuration = configFile;
+        function obj = multivariateTimeSeries(config)
+            obj.configuration = config;
             
             obj.tsInColumns  = csvread(obj.configuration.dataFilenameCSV,1);
             obj.tsInColumns  = obj.configuration.prepareRawData(obj.tsInColumns);

@@ -1,21 +1,58 @@
 classdef estimatedVecAR < VecAR
     %VecAR is a class for a time series collection
     %   Detailed explanation goes here
-
+    
     %%
     properties (Access = protected)
-        dataSample; 
+        dataSample;
         estimates;
     end
     
     
-    methods
+    methods  % constructors
         function obj = estimatedVecAR
             obj.config = configFile;
             obj.nLags = obj.config.nLags ;
-            obj.dataSample = multivariateTimeSeries;
+            obj.dataSample = multivariateTimeSeries( obj.config);
             obj.estimates = LSestimatesVAR( obj.dataSample, obj.nLags);
         end
+    end
+    methods  % basic characteristics
+        function namesOfTS = getNames(obj)
+            namesOfTS = obj.dataSample.getNames;
+        end
+        function n = getN(obj)
+            n = obj.dataSample.countTS;
+        end
+        function T = getT(obj)
+            T = obj.dataSample.countTimePeriods;
+        end
+        function d = countParameters(obj)
+            n = obj.getN ;
+            p = obj.nLags;
+            d = n * n * p + n * (n+1) / 2;
+        end
+    end
+    methods  % estimates
+        function Sigma = getSigma(obj)
+            Sigma = obj.estimates.getSigma;
+        end
+        function thetaHat = getTheta(obj)
+            thetaHat = obj.estimates.getThetaHat;
+        end
+        function OmegaT = getCovarianceOfThetaT(obj)
+            OmegaT = obj.estimates.getOmega / obj.getT ;
+        end
+    end
+    methods  % Represetnations
+        function VMA_ts_sh_ho = getVMA_ts_sh_ho(obj)
+            VMA_ts_sh_ho = obj.estimates.getVMA_ts_sh_ho;
+        end
+        function G = getVMADerivatives_ts_sh_ho_dAL(obj)
+            G = obj.estimates.getVMADerivatives;
+        end
+    end
+    methods % analysis of the VARs
         function stationarityTest(obj)
             % Checks whether reduced-form VAR model is covariance stationary
             VecAR.stationarity(obj.estimates.getAL)
@@ -40,35 +77,6 @@ classdef estimatedVecAR < VecAR
             [~, swartzLags] = min(bic);
             [~, hannanLags] = min(hqic);
             
-        end
-        function n = getN(obj)
-            n = obj.dataSample.countTS;
-        end
-        function d = countParameters(obj)
-            n = obj.getN ;
-            p = obj.nLags;
-            d = n * n * p + n * (n+1) / 2;
-        end
-        function OmegaT = getCovarianceOfThetaT(obj)
-            OmegaT = obj.estimates.getOmega / obj.getT ;
-        end
-        function thetaHat = getTheta(obj)
-            thetaHat = obj.estimates.getThetaHat;
-        end
-        function VMA_ts_sh_ho = getVMA_ts_sh_ho(obj)
-            VMA_ts_sh_ho = obj.estimates.getVMA_ts_sh_ho;
-        end
-        function G = getVMADerivatives_ts_sh_ho_dAL(obj)
-            G = obj.estimates.getVMADerivatives;
-        end
-        function T = getT(obj)
-            T = obj.dataSample.countTimePeriods;
-        end
-        function Sigma = getSigma(obj)
-            Sigma = obj.estimates.getSigma;
-        end
-        function namesOfTS = getNames(obj)
-            namesOfTS = obj.dataSample.getNames;
         end
     end
     

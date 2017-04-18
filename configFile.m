@@ -6,7 +6,7 @@ classdef configFile < handle
         %% read specification
         assumptionsFilename = ['MSG' filesep 'restMat.dat'];
         dataFilenameCSV = ['MSG' filesep 'data.csv']; % T=165
-        label = 'MSG';
+        SVARlabel = 'MSG';
         nLags = 12;
         nLagsMax = 24; % -    maximum possible number of lags in BIC/AIC/HQIC
         
