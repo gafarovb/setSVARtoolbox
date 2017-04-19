@@ -13,13 +13,17 @@ classdef mcExperiment < handle
     properties (Access = private)
         config;
         samples;                 % Array of SVAR objects with generated samples
-        waitBarHandle;
+        waitBarWindow;
     end
     
     methods
         function obj = mcExperiment(SVARobj)
             obj.design = SVARobj;
             obj.config = SVARobj.getConfig;
+            
+            obj.waitBarWindow = waitBarCustomized(  obj.getNumberOfSimulations);
+            
+            
             obj.samples = SVARobj.generateSamplesFromAsymptoticDistribution( obj.getNumberOfSimulations);
         end     
         function MaxSimulations = getNumberOfSimulations(obj)
@@ -63,23 +67,15 @@ classdef mcExperiment < handle
             obj.coverageTwoSidedIRFCSAnalytic =  obj.computeCoverageFrequency(H0isNotRejected);
             obj.coverageTwoSidedIRFCSAnalytic.setLabel( ['analytic two-sided CS cowerage with nominal p=',num2str(nominalLevel)]);
         end
-        function coverageFreqIRF = computeCoverageFrequency(obj,isCoveredIRFCollection)
+        function  coverageFreqIRF = computeCoverageFrequency(obj,isCoveredIRFCollection)
             coverageFreqIRF =  isCoveredIRFCollection(1,:);
             for i = 2: obj.getNumberOfSimulations
                 coverageFreqIRF = isCoveredIRFCollection(i,:) + coverageFreqIRF;
             end
             coverageFreqIRF =  (1 / obj.getNumberOfSimulations) * coverageFreqIRF; % don't change the order of multiplicaiton
         end
-        function MCwaitBar(obj,step)
-            maxSteps = obj.getNumberOfSimulations;
-            switch step
-                case 1
-                    obj.waitBarHandle = waitbar(step/maxSteps,'Please wait ...');
-                case maxSteps
-                    close(obj.waitBarHandle);
-                otherwise
-                    waitbar(step/maxSteps,obj.waitBarHandle);
-            end
+        function  MCwaitBar(obj,step)
+            obj.waitBarWindow.showProgress(step);
         end
     end
     

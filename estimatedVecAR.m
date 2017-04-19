@@ -8,10 +8,13 @@ classdef estimatedVecAR < VecAR
         estimates;
     end
     
-    
     methods  % constructors
-        function obj = estimatedVecAR
-            obj.config = configFile;
+        function obj = estimatedVecAR(config)
+            if nargin<1
+                obj.config = configFile;
+            else
+                obj.config = config;
+            end
             obj.nLags = obj.config.nLags ;
             obj.dataSample = multivariateTimeSeries( obj.config);
             obj.estimates = LSestimatesVAR( obj.dataSample, obj.nLags);
@@ -46,7 +49,7 @@ classdef estimatedVecAR < VecAR
     end
     methods  % Represetnations
         function VMA_ts_sh_ho = getVMA_ts_sh_ho(obj)
-            VMA_ts_sh_ho = obj.estimates.getVMA_ts_sh_ho;
+            VMA_ts_sh_ho = obj.estimates.getVMA_ts_sh_ho( obj.config.nNoncontemoraneousHorizons);
         end
         function G = getVMADerivatives_ts_sh_ho_dAL(obj)
             G = obj.estimates.getVMADerivatives;

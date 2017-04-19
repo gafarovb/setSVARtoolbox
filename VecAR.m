@@ -1,7 +1,7 @@
 classdef (Abstract) VecAR
     %VECAR Summary of this class goes here
     %   Detailed explanation goes here
-    properties (Access = protected)
+    properties  ( Access = protected)
         nLags = [] ;  %% The number "p" of lags in the SVAR model
         config;     % handle to an object of configFile class
     end
@@ -39,7 +39,6 @@ classdef (Abstract) VecAR
         getTheta(obj);
         getNames(obj);
         getCovarianceOfThetaT(obj);
-        
     end
  
     methods (Access = public, Static)
@@ -55,14 +54,14 @@ classdef (Abstract) VecAR
             
             theta = [vecAL; vechSigma];
         end
-        function VMA_ts_sh_ho  = getVMAfromAL( AL_n_x_np, hori)
+        function VMA_ts_sh_ho  = getVMAfromAL( AL_n_x_np, nNoncontemoraneousHorizons)
             % -------------------------------------------------------------------------
             % Transforms the A(L) parameters of a reduced-form VAR
             % into the coefficients C of the MA representation.
             %
             % Inputs:
             % - AL: VAR model coefficients
-            % - hori: forecast horizon
+            % - nNoncontemoraneousHorizons : forecast horizon
             % Outputs:
             % - C: MA representation coefficients
             %
@@ -75,27 +74,27 @@ classdef (Abstract) VecAR
             AL_n_x_n_x_p = reshape(AL_n_x_np,[n,n,p]);
             
             %% Initialize the value of the auxiliary array vecALrevT
-            vecALrevT = zeros(n,n,hori);
-            for i=1:hori
-                if i<(hori-p)+1
+            vecALrevT = zeros(n,n,nNoncontemoraneousHorizons);
+            for i=1:nNoncontemoraneousHorizons
+                if i<(nNoncontemoraneousHorizons-p)+1
                     vecALrevT(:,:,i) = zeros(n,n);
                 else
-                    vecALrevT(:,:,i) = AL_n_x_n_x_p(:,:,(hori-i)+1)';
+                    vecALrevT(:,:,i) = AL_n_x_n_x_p(:,:,(nNoncontemoraneousHorizons-i)+1)';
                 end
             end
-            vecALrevT = reshape(vecALrevT,[n,n*hori]);
+            vecALrevT = reshape(vecALrevT,[n,n*nNoncontemoraneousHorizons]);
             
             
             %% MA coefficients
-            C = repmat(AL_n_x_n_x_p(:,:,1),[1,hori]);
-            for i=1:hori-1
-                C(:,(n*i)+1:(n*(i+1))) = [eye(n),C(:,1:n*i)] * vecALrevT(:,(hori*n-(n*(i+1)))+1:end)';
+            C = repmat(AL_n_x_n_x_p(:,:,1),[1,nNoncontemoraneousHorizons]);
+            for i=1:nNoncontemoraneousHorizons-1
+                C(:,(n*i)+1:(n*(i+1))) = [eye(n),C(:,1:n*i)] * vecALrevT(:,(nNoncontemoraneousHorizons * n-(n*(i+1)))+1:end)';
             end
 
             
             %% cumulative MA coefficients
             VMA = [eye(n), C];
-            VMA_ts_sh_ho = reshape(VMA,[n,n,(hori+1)]);
+            VMA_ts_sh_ho = reshape(VMA,[n,n,(nNoncontemoraneousHorizons+1)]);
         end
         function G_ts_sh_ho_dAL = getVMAderivatives(AL_n_x_np, hori)
             % -------------------------------------------------------------------------

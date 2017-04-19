@@ -86,12 +86,12 @@ classdef simulatedVecAR < VecAR
         end
         function VMA_ts_sh_ho = getVMA_ts_sh_ho(obj)
             AL_n_x_np = obj.getAL_n_x_np;
-            hori = obj.config.MaxHorizons;
+            hori = obj.config.nNoncontemoraneousHorizons;
             VMA_ts_sh_ho = obj.getVMAfromAL( AL_n_x_np, hori);
         end
         function G = getVMADerivatives_ts_sh_ho_dAL(obj)          
             AL_n_x_np = obj.getAL_n_x_np;
-            hori = obj.config.MaxHorizons;
+            hori = obj.config.nNoncontemoraneousHorizons;
             G = obj.getVMAderivatives( AL_n_x_np, hori);
         end
         function names =  getNames(obj)

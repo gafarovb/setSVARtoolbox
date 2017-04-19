@@ -6,6 +6,7 @@ classdef stochasticInequalities < handle
         originalSample;
         unitSphereGrid;
         config;
+        waitBarWindow;
     end
     
     methods
@@ -14,6 +15,10 @@ classdef stochasticInequalities < handle
             obj.originalSample = SVARobj;
             obj.samples = SVARobj.generateSamplesFromAsymptoticDistribution( obj.getNsamples);
             obj.unitSphereGrid = obj.generateNdimUnitSphereGrid(SVARobj.getN, obj.getNgridPoints);
+            
+            obj.waitBarWindow = waitBarCustomized(  obj.getNgridPoints);
+            obj.waitBarWindow.setMessage('Computing Bonferroni CS, stage 1 ');
+
         end
         function b = getNsamples(obj)
             b = obj.config.nBootstrapSamples;
@@ -32,10 +37,11 @@ classdef stochasticInequalities < handle
             gridPointInCS = true(nGridpoints,1);
             
             for i = 1: nGridpoints
-                %    gridPointInCS(i) = obj.testGridPoints( obj.unitSphereGrid(i,:)', step1Level);
+                gridPointInCS(i) = obj.testGridPoints( obj.unitSphereGrid(i,:)', step1Level);
+                obj.waitBarWindow.showProgress(i);
             end
             
-            for i = 1: nGridpoints
+            for i = nGridpoints: -1: 1
                 if  gridPointInCS(i)
                     [lowerBounds(:,:,i), upperBounds(:,:,i) ] = obj.computeCSObjectiveFunctions( obj.unitSphereGrid(i,:)', step2Level);
                 end
@@ -43,8 +49,8 @@ classdef stochasticInequalities < handle
             
             namesTS = obj.originalSample.getNamesOfTS;
             label = ['Bonferroni 2nd step CS with p= ' num2str(level) ];
-            lowerBoundIRF = IRFcollection( min(lowerBounds,[],3), namesTS, label );
-            upperBoundsIRF = IRFcollection( max(upperBounds,[],3), namesTS, label );
+            lowerBoundIRF = IRFcollection( nanmin(lowerBounds,[],3), namesTS, label );
+            upperBoundsIRF = IRFcollection( nanmax(upperBounds,[],3), namesTS, label );
         end
         function isInTheCS = testGridPoints(obj,gridPoint,level)
             resampledResidual = obj.resampleResiduals( gridPoint);

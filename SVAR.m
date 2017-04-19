@@ -108,7 +108,7 @@ classdef SVAR < handle
             restMat = SVARobj.getRestMat;
             nRestrictions = size(restMat,1);
             config = SVARobj.getConfig;
-            MaxHorizons = config.MaxHorizons;
+            MaxHorizons = config.nNoncontemoraneousHorizons;
             
             %% allocate memory
             restrictedBelow = false(nShocks,MaxHorizons+1);

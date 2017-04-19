@@ -2,16 +2,16 @@ classdef configFile < handle
     %configFile contains specification for SVAR objects
     %   Detailed explanation goes here
     
-    properties (Access = public,Constant )
+    properties (Access = public )
         %% read specification
         assumptionsFilename = ['MSG' filesep 'restMat.dat'];
-        dataFilenameCSV = ['MSG' filesep 'data.csv']; % T=165
+        dataFilenameCSV = ['MSG' filesep 'data.csv']; % T=165 for MSG
         SVARlabel = 'MSG';
         nLags = 12;
         nLagsMax = 24; % -    maximum possible number of lags in BIC/AIC/HQIC
         
         %% reduced var
-        MaxHorizons = 23;      % the number of horizons to compute the IRF
+        nNoncontemoraneousHorizons = 23;      % the number of horizons to compute the IRF
         scedasticity = 'homo'; % 'homo' = homoscedastic Omega, 'hetero' = heteroscedastic Omega
         babn1 = 1000;          % bab: number of bootstrap samples before bias correction
         babn2 = 1000;          % bab: number of bootstrap samples after  bias correction
@@ -23,8 +23,8 @@ classdef configFile < handle
         AndrewsSoaresKappa0 = 1.96;
         noiseStdToAvoidDeterministicConstraints = 1e-6;
         bonferroniStep1 = 0.5; 
-        nGridPoints = 10;
-        nBootstrapSamples = 100;
+        nGridPoints = 5000;
+        nBootstrapSamples = 500;
         
         %% Specify shock
         % solve for IRF bounds of specified shock
@@ -40,7 +40,6 @@ classdef configFile < handle
         function tsReadyForAnalysis = prepareRawData(rawTSinColumns)
             tsReadyForAnalysis = MSG_demeanAndSumOfFirstAndFourthSeries(rawTSinColumns);
         end
-        
         function f_T = andrewsSoaresTunningSequence(T)
             f_T = log(log(T))/sqrt(T);
         end

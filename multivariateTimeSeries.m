@@ -33,6 +33,9 @@ classdef multivariateTimeSeries < handle
         function names = getNames(obj)
             names = obj.labelsOfTimeSeries;
         end
+        function scedasticity = getScedasticity(obj)
+            scedasticity = obj.configuration.scedasticity;
+        end
     end
     methods (Static)
         function firstRow = readCSVheader(dataFilenameCSV,nColumns)
