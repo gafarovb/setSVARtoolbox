@@ -7,6 +7,9 @@ classdef IRF
         Values = [];
         labelTS = 'Unnamed TS';
         label = 'Unknown IRF' ;
+        model = 'UnknownModel';
+        unitsOfMeasurement = '% change';
+        markerString = '-';
     end
  
     
@@ -19,7 +22,7 @@ classdef IRF
           if nargin~=0  
             obj.labelTS = labelTS;
             obj.label   = label;
-            obj.Values     = vectorIRF;
+            obj.Values   = vectorIRF;
           end
         end
         function d = double(obj)
@@ -48,13 +51,30 @@ classdef IRF
         function obj = setValues(obj,values)
             obj.Values = values;
         end
-        function nHorizons = MaxHorizons(obj)
+        function nHorizons = nNoncontemoraneousHorizons(obj)
             nHorizons = size(obj.Values,2)-1;
         end
         function obj = setLabel(obj,label)
             obj.label = label;
+        end 
+        function obj = setUnits(obj,unitString)
+            obj.unitsOfMeasurement = unitString;
+        end 
+        function fileName = getFileName(obj)
+            fileName = ['''figures'   filesep char(obj.labelTS{1}) '' ];
         end
- 
+  
+        function figHandle = plot(obj)
+            maxHorizon = obj.nNoncontemoraneousHorizons;
+            figHandle = plot(0:1:maxHorizon, obj.Values,['k'  obj.markerString ],'LineWidth',2);
+            title(obj.labelTS{1},'Interpreter','tex','FontSize',12); 
+            hold on; 
+            ylabel(obj.unitsOfMeasurement); 
+            xlabel('Months after shock');
+            set(gca,'LineWidth',2.0);
+            grid on; 
+            box off; 
+        end
     end
     
 end

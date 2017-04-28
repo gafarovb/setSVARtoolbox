@@ -14,8 +14,8 @@ classdef IDassumptions < handle
 
     
     methods
-        function obj = IDassumptions(assumptionsFilename)
-             obj.assumptionsMatrixInput = load(assumptionsFilename);
+        function obj = IDassumptions(restMat)
+             obj.assumptionsMatrixInput =restMat ;
         end
         function matrix = getRestMat(obj)
             % read the restricitons matrix

@@ -11,25 +11,32 @@ classdef SVAR < handle
     
     properties (Access = public)
         label = 'Unknown'; % Model label, e.g. MSG
+        MIframework; 
+        analytic;
     end
     
     properties (Access = private)
-        optimiaztionProblems = [];
-        VecARmodel  = [];
-        momentInequalities  = [];  
+         VecARmodel  = [];
         ID = [] ; %% An object with restrictions
     end
     
     methods  % constructors
-        function obj = SVAR(VecARmodel)
+        function obj = SVAR(VecARmodel,restMat)
             if nargin > 0
                 obj.VecARmodel = VecARmodel;
             else
                 obj.VecARmodel = estimatedVecAR; % create a reduced form VAR model
             end
+
             config = obj.getConfig;
+            if nargin <2
+                restMat = load(config.assumptionsFilename);
+            end
+            
             obj.label = config.SVARlabel;
-            obj.ID = IDassumptions( config.assumptionsFilename); % read ID assumptions from a file
+            obj.ID = IDassumptions( restMat);  
+            loadMIframework(obj);
+            loadAnalyticFramwork(obj);
         end
         function Samples = generateSamplesFromAsymptoticDistribution(obj,nSimulations)
             rng('default');
@@ -43,17 +50,15 @@ classdef SVAR < handle
             end
             
         end
-        function setMomentInequalities(obj)
-            if isempty( obj.momentInequalities)
-                obj.momentInequalities = stochasticInequalities(obj) ;
-            end
+        function loadMIframework(obj)
+            obj.MIframework = SVARMomentInequalitiesFramework(obj);
         end
-        function setOptimizationProblems(obj)
-            if isempty( obj.optimiaztionProblems)
-                obj.optimiaztionProblems = optimizationProblems( obj);
-            end
+        function loadAnalyticFramwork(obj)
+            obj.analytic = SVARanalyticFramework(obj);
         end
+        
     end
+    
     methods
         function config = getConfig(obj)
             config = obj.VecARmodel.getConfig;
@@ -92,10 +97,6 @@ classdef SVAR < handle
     end
     
     methods
-        function stdIRFcollection = asymptoticStdDeviations(obj)
-            stdMat = obj.optimiaztionProblems.getWorstCaseStdMat;
-            stdIRFcollection = IRFcollection(stdMat, obj.VecARmodel.getNames, 'standard deviatons') ;
-        end
         function IRFcol = enforceIRFRestrictions(SVARobj,IRFcol)
             %% This function enforces sign and zero restrictions specified in SVARobj
             %  on IRF
@@ -138,85 +139,9 @@ classdef SVAR < handle
             IRFmat(restrictedBelow) = max(0,IRFmat(restrictedBelow));
             IRFcol = IRFcol.setValues(IRFmat);
         end
-        function xStar = computeFirstColumnOfSigmaSqrtAtSphericalGridPoint(obj,gridpoint)
-            Sigma = obj.getSigma;
-            xStar = chol(Sigma) * gridpoint;
-        end
-        function slack = computeInequlaitySlackAtSphericalGridPoint(obj,gridpoint)
-            xStar = computeFirstColumnOfSigmaSqrtAtSphericalGridPoint(obj,gridpoint);
-            linearConstraintsAndDerivatives =  obj.getLinearConstraintsAndDerivatives;
-            slack = linearConstraintsAndDerivatives.SR_nInequalities_sh * xStar;
-        end
-        function residual = computeEqualityResidualAtSphericalGridPoint(obj,gridpoint)
-            xStar = computeFirstColumnOfSigmaSqrtAtSphericalGridPoint(obj,gridpoint);
-            linearConstraintsAndDerivatives =  obj.getLinearConstraintsAndDerivatives;
-            residual = linearConstraintsAndDerivatives.ZR_nEqualities_sh * xStar;
-        end
-        function valuesIRF = computeObjectiveFunctionsAtSphericalGridPoint(obj,gridpoint)
-            xStar = computeFirstColumnOfSigmaSqrtAtSphericalGridPoint(obj,gridpoint);
-            objectiveFunctionsAndDerivatives = getIRFObjectiveFunctions(obj);
-            VMA_ts_sh_ho = objectiveFunctionsAndDerivatives.VMA_ts_sh_ho;
-            valuesIRF = tensorOperations.convWithVector( VMA_ts_sh_ho, 2, xStar);
-        end
     end
     
-    methods (Access = public)
-        function maxIRFcollection = onesidedUpperIRFHatAnalytic(obj)
-            setOptimizationProblems(obj);
-            maxBoundsMatrix = obj.optimiaztionProblems.getMaxBounds;
-            maxIRFcollection = IRFcollection(maxBoundsMatrix, obj.VecARmodel.getNames, 'max point estimates') ;
-            maxIRFcollection = obj.enforceIRFRestrictions(maxIRFcollection) ;
-        end
-        function minIRFcollection = onesidedLowerIRFHatAnalytic(obj)
-            setOptimizationProblems(obj);
-            minBoundsMatrix = obj.optimiaztionProblems.getMinBounds;
-            minIRFcollection = IRFcollection(minBoundsMatrix, obj.VecARmodel.getNames, 'min point estimates') ;
-            minIRFcollection = obj.enforceIRFRestrictions(minIRFcollection) ;
-        end
-        function confidenceBounds = onesidedUpperIRFCSAnalytic(obj,level)
-            setOptimizationProblems(obj);
-             
-            pointEstimates = obj.onesidedUpperIRFHatAnalytic;
-            
-            stdIRF =  obj.asymptoticStdDeviations ;
-            
-            confidenceBounds = pointEstimates +  norminv(level,0,1) * stdIRF  ;
-            
-            confidenceBounds = obj.enforceIRFRestrictions(confidenceBounds) ;
-            
-            confidenceBounds = confidenceBounds.setLabel(['analytic upper one-sided CS with p=',num2str(level)]);
-        end
-        function confidenceBounds = onesidedLowerIRFCSAnalytic(obj,level)
-            setOptimizationProblems(obj);
-                        
-            pointEstimates = obj.onesidedLowerIRFHatAnalytic;
-            
-            stdIRF =  obj.asymptoticStdDeviations ;
-            
-            confidenceBounds = pointEstimates - norminv(level,0,1) * stdIRF  ;
-            
-            confidenceBounds = obj.enforceIRFRestrictions(confidenceBounds) ;
-            
-            confidenceBounds = confidenceBounds.setLabel(['analytic lower one-sided CS with p=',num2str(level)]);
-        end
-        function confidenceBounds = twosidedIRFCSbonferroni(obj,level)
-            setMomentInequalities(obj);
-            
-            [confidenceBoundsLow,confidenceBoundsUp] = obj.momentInequalities.computeBonferroniCS(level);
-            
-            confidenceBoundsLow = obj.enforceIRFRestrictions(confidenceBoundsLow) ;
-            confidenceBoundsLow = confidenceBoundsLow.setLabel(['Bonferroni lower two-sided CS with p=',num2str(level)]);
-            
-            confidenceBoundsUp = obj.enforceIRFRestrictions(confidenceBoundsUp) ;
-            confidenceBoundsUp = confidenceBoundsUp.setLabel(['Bonferroni upper two-sided CS with p=',num2str(level)]);
-            
-            confidenceBounds = [confidenceBoundsUp,confidenceBoundsLow];
-            
-        end
-    end
-    
-    methods 
-    end
+
     
     
 end

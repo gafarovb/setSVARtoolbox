@@ -110,7 +110,7 @@ classdef optimizationProblems  < handle
             nSubProblems = obj.countSubproblems;
             
             for i = 1:nSubProblems
-                minBoundsForSubproblems(:,:,i) = obj.subproblems(i).maxBounds;
+                minBoundsForSubproblems(:,:,i) = obj.subproblems(i).minBounds;
             end
             minBounds = min( minBoundsForSubproblems,[],3);
         end

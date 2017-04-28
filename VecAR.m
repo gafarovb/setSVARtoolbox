@@ -3,6 +3,7 @@ classdef (Abstract) VecAR
     %   Detailed explanation goes here
     properties  ( Access = protected)
         nLags = [] ;  %% The number "p" of lags in the SVAR model
+        scedasticity;
         config;     % handle to an object of configFile class
     end
     
@@ -179,7 +180,7 @@ classdef (Abstract) VecAR
             vecSigma =  vecFromVech * vechSigma;
             Sigma = reshape(vecSigma,[nShocks,nShocks]);
         end
-
+ 
     end
     
 end

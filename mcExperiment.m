@@ -20,10 +20,7 @@ classdef mcExperiment < handle
         function obj = mcExperiment(SVARobj)
             obj.design = SVARobj;
             obj.config = SVARobj.getConfig;
-            
             obj.waitBarWindow = waitBarCustomized(  obj.getNumberOfSimulations);
-            
-            
             obj.samples = SVARobj.generateSamplesFromAsymptoticDistribution( obj.getNumberOfSimulations);
         end     
         function MaxSimulations = getNumberOfSimulations(obj)

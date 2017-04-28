@@ -25,9 +25,10 @@ classdef LSestimatesVAR < handle
     end
     
     methods
-        function obj = LSestimatesVAR( handleDataSample, nLags)
+        function obj = LSestimatesVAR( handleDataSample, nLags, scedasticity)
             obj.handleDataSample = handleDataSample;
             obj.nLags = nLags;
+            obj.scedasticity = scedasticity;
             computeLSestimates(obj);
             computeCovariance(obj);
         end
@@ -80,7 +81,7 @@ classdef LSestimatesVAR < handle
             obj.SigmaHat = (obj.etahat * obj.etahat') / reducedT; % Covariance matrix
         end
         function  computeCovariance(obj)
-            obj.scedasticity = obj.handleDataSample.getScedasticity;
+           
             [~,X] = obj.handleDataSample.getYX(obj.nLags);
             [obj.Omega, obj.Omegainv] = obj.computeCovarianceOfTheta( X, obj.etahat, obj.scedasticity );
         end

@@ -5,17 +5,12 @@ classdef multivariateTimeSeries < handle
     properties (Access = private )
         labelsOfTimeSeries = [];
         tsInColumns = [] ;
-        configuration;
     end
     
     methods
-        function obj = multivariateTimeSeries(config)
-            obj.configuration = config;
-            
-            obj.tsInColumns  = csvread(obj.configuration.dataFilenameCSV,1);
-            obj.tsInColumns  = obj.configuration.prepareRawData(obj.tsInColumns);
-            
-            obj.labelsOfTimeSeries = obj.readCSVheader(obj.configuration.dataFilenameCSV,obj.countTS);
+        function obj = multivariateTimeSeries(tsInColumns, labelsOfTimeSeries )
+            obj.tsInColumns  = tsInColumns;
+            obj.labelsOfTimeSeries  = labelsOfTimeSeries;
         end
         function n = countTS(obj)
             [~,n] = size( obj.tsInColumns);
@@ -33,17 +28,9 @@ classdef multivariateTimeSeries < handle
         function names = getNames(obj)
             names = obj.labelsOfTimeSeries;
         end
-        function scedasticity = getScedasticity(obj)
-            scedasticity = obj.configuration.scedasticity;
-        end
+
     end
-    methods (Static)
-        function firstRow = readCSVheader(dataFilenameCSV,nColumns)
-            fid       = fopen(dataFilenameCSV);
-            firstRow = textscan(fid,[repmat('%[^,],',1,nColumns-1) '%[^,\r\n]'], 1);
-            fclose(fid);
-        end
-    end
+
 end
 
 

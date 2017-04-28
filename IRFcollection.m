@@ -1,7 +1,7 @@
 classdef IRFcollection < IRF
     %IRFCOLLECTION Summary of this class goes here
     %   Detailed explanation goes here
-      
+    
     methods
         function  obj = IRFcollection(IRFmatrix,names,label)
             if nargin ~= 0
@@ -27,6 +27,22 @@ classdef IRFcollection < IRF
                 obj(i).label=label;
             end
         end
+        function obj = setUnits(obj,unitsOfMeasurement)
+            [nLines, nPlots] = size(obj);
+            for j = 1:nPlots
+                for i = 1 : nLines
+                    obj(i,j).unitsOfMeasurement = unitsOfMeasurement;
+                end
+            end
+        end
+        function obj = setMarker(obj,markerStr)
+            [nLines, nPlots] = size(obj);
+            for j = 1:nPlots
+                for i = 1 : nLines
+                    obj(i,j).markerString=markerStr;
+                end
+            end
+        end
         function  irfMat =  matrixForm(obj)
             nElements = size(obj,2);
             maxHorizon = size(obj(1).Values,2);
@@ -39,7 +55,33 @@ classdef IRFcollection < IRF
             d = obj.matrixForm;
         end
         
+        function figureArray = plotPanel(obj)
+            [nLines, nPlots] = size(obj);
+            for j = 1:nPlots
+                figureArray(j) = figure(j);
+                for i = 1 : nLines
+                    plot(obj(i,j));
+                    hold on;
+                end
+           %  fn_print(figureArray(j), obj(i,j).getFileName);
+            end
+        end
     end
     
 end
 
+
+
+function fn_print(h,name)
+
+set(h, 'PaperUnits','centimeters');
+set(h, 'Units','centimeters');
+pos=get(h,'Position');
+set(h, 'PaperSize', [pos(3) pos(4)]);
+set(h, 'PaperPositionMode', 'manual');
+set(h, 'PaperPosition',[0 0 pos(3) pos(4)]);
+%eval(['print(','''-dpdf''',',',name,')'])
+commandString = ['''print(','''-depsc2''',',',name,')'''];
+eval(commandString);
+
+end

@@ -9,15 +9,28 @@ classdef estimatedVecAR < VecAR
     end
     
     methods  % constructors
-        function obj = estimatedVecAR(config)
+        function obj = estimatedVecAR(config, tsInColumns, labelsOfTimeSeries)
             if nargin<1
                 obj.config = configFile;
             else
                 obj.config = config;
             end
             obj.nLags = obj.config.nLags ;
-            obj.dataSample = multivariateTimeSeries( obj.config);
-            obj.estimates = LSestimatesVAR( obj.dataSample, obj.nLags);
+            obj.scedasticity = obj.config.scedasticity ;
+            
+            if nargin<2
+                [tsInColumns, labelsOfTimeSeries ] = obj.readDataFromFile(obj.config);
+            end
+            
+            obj.dataSample = multivariateTimeSeries( tsInColumns, labelsOfTimeSeries );
+            obj.estimates = LSestimatesVAR( obj.dataSample, obj.nLags, obj.scedasticity);
+        end
+        
+        function [tsInColumns, labelsOfTimeSeries ]= readDataFromFile(obj,config)
+            tsInColumns  = csvread(config.dataFilenameCSV,1);
+            tsInColumns  = config.prepareRawData( tsInColumns);
+            nTS = size(tsInColumns,2);
+            labelsOfTimeSeries = obj.readCSVheader( config.dataFilenameCSV, nTS);
         end
     end
     methods  % basic characteristics
@@ -71,9 +84,9 @@ classdef estimatedVecAR < VecAR
             hqic = zeros(nLagsMax,1);
             
             for p = 1:nLagsMax
-                estimatesForPlags = LSestimatesVAR( obj.dataSample, p);
+                estimatesForPlags = LSestimatesVAR( obj.dataSample, p, obj.scedasticity);
                 [bic(p), aic(p), hqic(p)] = getBicAicHQic(estimatesForPlags);
-                obj.estimates = LSestimatesVAR( obj.dataSample, obj.nLags);
+                obj.estimates = LSestimatesVAR( obj.dataSample, obj.nLags , obj.scedasticity );
             end
             
             [~, akaikeLags] = min(aic);
@@ -82,7 +95,13 @@ classdef estimatedVecAR < VecAR
             
         end
     end
-    
+        methods (Static)
+        function firstRow = readCSVheader(dataFilenameCSV,nColumns)
+            fid       = fopen(dataFilenameCSV);
+            firstRow = textscan(fid,[repmat('%[^,],',1,nColumns-1) '%[^,\r\n]'], 1);
+            fclose(fid);
+        end
+    end
 end
 
 
