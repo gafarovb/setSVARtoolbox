@@ -19,7 +19,7 @@ classdef configFile < handle
         largeNumber = 100000;  % FIXME: constant c from the paper 
         smallNumber = 1e-6;
         %% Svar
-        cum = '';  % 'cum' = cumulative IRF responses
+        cum = 'cum';  % 'cum' = cumulative IRF responses
         AndrewsSoaresKappa0 = 1.96;
         noiseStdToAvoidDeterministicConstraints = 1e-6;
         bonferroniStep1 = 0.5; 
@@ -30,7 +30,7 @@ classdef configFile < handle
         % solve for IRF bounds of specified shock
         % (by default, compute bounds for all shocks under gridsearch algorithm)
         masterSeed = 123456789; % Seed that generates seeds for every simulation
-        MaxSimulations = 100 ;  % number of Monte Carlo simulations
+        MaxSimulations = 1000 ;  % number of Monte Carlo simulations
         shock = 1;
 
          

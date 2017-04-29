@@ -48,7 +48,7 @@ classdef SVARanalyticFramework < handle
             
             confidenceBounds = pointEstimates +  norminv(level,0,1) * stdIRF  ;
             
-            confidenceBounds = obj.SVARfacade.enforceIRFRestrictions(confidenceBounds) ;
+            confidenceBounds = obj.SVARfacade.enforceIRFRestrictions( confidenceBounds) ;
             
             confidenceBounds = confidenceBounds.setLabel(['analytic upper one-sided CS with p=',num2str(level)]);
             confidenceBounds = confidenceBounds.setMarker(':');
@@ -66,16 +66,15 @@ classdef SVARanalyticFramework < handle
             
             confidenceBounds = confidenceBounds.setLabel(['analytic lower one-sided CS with p=',num2str(level)]);
             confidenceBounds = confidenceBounds.setMarker(':');
-
+            
         end
         
         function confidenceBounds = twoSidedIRFCS(obj,level)
-            levelOneSided = 1 - level/2;
-             confidenceBounds = [ obj.onesidedUpperIRFCS(levelOneSided) ; obj.onesidedLowerIRFCS(levelOneSided)];
-             confidenceBounds = confidenceBounds.setLabel(['analytic two-sided CS with p=',num2str(level)]);
-
+            levelOneSided = 1- ( 1 - level)/2;
+            confidenceBounds = [ obj.onesidedUpperIRFCS(levelOneSided) ; obj.onesidedLowerIRFCS(levelOneSided)];
+            confidenceBounds = confidenceBounds.setLabel(['analytic two-sided CS with p=',num2str(level)]);
         end
-            
+        
     end
     
     
