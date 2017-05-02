@@ -60,11 +60,12 @@ classdef IRF
         function obj = setUnits(obj,unitString)
             obj.unitsOfMeasurement = unitString;
         end 
-        function fileName = getFileName(obj)
-            fileName = ['''figures'   filesep char(obj.labelTS{1}) '' ];
+        function fileName = getLabelTS(obj)
+            fileName =  char(obj.labelTS{1})  ;
         end
   
         function figHandle = plot(obj)
+            
             maxHorizon = obj.nNoncontemoraneousHorizons;
             figHandle = plot(0:1:maxHorizon, obj.Values,['k'  obj.markerString ],'LineWidth',2);
             title(obj.labelTS{1},'Interpreter','tex','FontSize',12); 

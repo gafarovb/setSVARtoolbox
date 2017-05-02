@@ -25,13 +25,13 @@ classdef SVAR < handle
             if nargin > 0
                 obj.VecARmodel = VecARmodel;
             else
-                warning('Reduced-form VAR is not provided. Using the default VAR model and dataset')
+                warning('SVARtoolbox:noInput','Reduced-form VAR is not provided. Using the default VAR model and dataset')
                 obj.VecARmodel = estimatedVecAR; % create a reduced form VAR model
             end
 
             config = obj.getConfig;
             if nargin <2
-                warning('Identification scheme is not provided. Using the default scheme')
+                warning('SVARtoolbox:noInput','Identification scheme is not provided. Using the default scheme')
                 restMat = load(config.assumptionsFilename);
                 ID = IDassumptions( restMat);
             end
@@ -46,10 +46,11 @@ classdef SVAR < handle
             config = obj.getConfig;
             rng(config.masterSeed,'twister');
             seedVector = randi( 1e7, nSimulations); % controls random number generation.
-            Samples(nSimulations) = SVAR; % preallocate memory
+            Samples(nSimulations) = SVAR; % preallocate memory; This line can creat warnings
+            
             for i = 1 : nSimulations
                 sampleVecAR = simulatedVecAR(seedVector(i), obj);
-                Samples(i) = SVAR(sampleVecAR, obj.getRestMat);
+                Samples(i) = SVAR(sampleVecAR, obj.ID);
             end
             
         end
@@ -145,7 +146,14 @@ classdef SVAR < handle
     end
     
 
-    
+    methods
+        function IRFCS = twoSidedIRFCS(obj,level,type)
+            if type=='analytic'
+                IRFCS = obj.analytic.twoSidedIRFCS(level);
+            end
+            
+        end
+    end
     
 end
 

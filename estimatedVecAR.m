@@ -6,8 +6,10 @@ classdef estimatedVecAR < VecAR
     properties (Access = protected)
         dataSample;
         estimates;
+        
     end
     
+
     methods  % constructors
         function obj = estimatedVecAR( config,dataset)
             if nargin<1
@@ -26,7 +28,7 @@ classdef estimatedVecAR < VecAR
             end
             
             obj.dataSample = dataset;
-            obj.estimates = LSestimatesVAR( obj.dataSample, obj.nLags, obj.scedasticity);
+            obj.estimates = LSestimatesVAR( obj.dataSample, obj.nLags,obj.config.nNoncontemoraneousHorizons, obj.scedasticity);
         end
         
         function [tsInColumns, labelsOfTimeSeries ]= readDataFromFile(obj,config)
@@ -87,9 +89,9 @@ classdef estimatedVecAR < VecAR
             hqic = zeros(nLagsMax,1);
             
             for p = 1:nLagsMax
-                estimatesForPlags = LSestimatesVAR( obj.dataSample, p, obj.scedasticity);
+                estimatesForPlags = LSestimatesVAR( obj.dataSample, p,obj.config.nNoncontemoraneousHorizons, obj.scedasticity);
                 [bic(p), aic(p), hqic(p)] = getBicAicHQic(estimatesForPlags);
-                obj.estimates = LSestimatesVAR( obj.dataSample, obj.nLags , obj.scedasticity );
+                obj.estimates = LSestimatesVAR( obj.dataSample, obj.nLags ,obj.config.nNoncontemoraneousHorizons, obj.scedasticity );
             end
             
             [~, akaikeLags] = min(aic);

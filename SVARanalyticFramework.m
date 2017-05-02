@@ -8,7 +8,7 @@ classdef SVARanalyticFramework < handle
     end
     
     methods
-        function obj = SVARanalyticFramework(SVARobj)
+        function obj = SVARanalyticFramework( SVARobj)
             obj.SVARfacade = SVARobj;
             obj.optProblems = [];
         end

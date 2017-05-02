@@ -2,7 +2,11 @@ classdef LSestimatesVAR < handle
     %LSestimatesVAR Summary of this class goes here
     %   Detailed explanation goes here
     
-    properties (Access = private)
+    properties (Access = public)
+        G_ts_sh_ho_dAL
+    end
+        properties
+        initialized = 'NO';
     end
     
     properties (Access = private)
@@ -18,19 +22,22 @@ classdef LSestimatesVAR < handle
         
         %% Estimates of IRF
         VMA_ts_sh_ho;
-        G_ts_sh_ho_dAL;            %  G matrix: derivative of vec(C) wrt vec(AL)
+       % G_ts_sh_ho_dAL;            %  G matrix: derivative of vec(C) wrt vec(AL)
         
         Omega;      % asymptotic covariance matrix for reduced form coefficients
         Omegainv;   % Block inverse of Omega (assumes homoskedasticity)
     end
     
     methods
-        function obj = LSestimatesVAR( handleDataSample, nLags, scedasticity)
+        function obj = LSestimatesVAR( handleDataSample, nLags,nNoncontemoraneousHorizons, scedasticity)
             obj.handleDataSample = handleDataSample;
             obj.nLags = nLags;
             obj.scedasticity = scedasticity;
-            computeLSestimates(obj);
-            computeCovariance(obj);
+            obj = computeLSestimates(obj);
+            obj = computeCovariance(obj);
+            obj = computeVMAandDerivatives(obj, nNoncontemoraneousHorizons); 
+            obj.initialized = 'yes';
+
         end
         function T = getT(obj)
             T = obj.handleDataSample.countTimePeriods;
@@ -57,7 +64,7 @@ classdef LSestimatesVAR < handle
             hqic = logLikelihood + 2*log(log(T)) * penalty;
         end
         function VMA_ts_sh_ho = getVMA_ts_sh_ho(obj, nNoncontemoraneousHorizons)
-            computeVMAandDerivatives(obj, nNoncontemoraneousHorizons );
+            obj = computeVMAandDerivatives(obj, nNoncontemoraneousHorizons );
             VMA_ts_sh_ho = obj.VMA_ts_sh_ho;
         end
         function Sigma = getSigma(obj)
@@ -69,7 +76,7 @@ classdef LSestimatesVAR < handle
         
     end
     methods (Access = private)
-        function  computeLSestimates(obj)
+        function  obj = computeLSestimates(obj)
             [Y,X] = obj.handleDataSample.getYX(obj.nLags);
             
             slopeEstimates = (Y'*X) * ((X'*X)^(-1));
@@ -80,12 +87,12 @@ classdef LSestimatesVAR < handle
             reducedT = size(obj.etahat,2);
             obj.SigmaHat = (obj.etahat * obj.etahat') / reducedT; % Covariance matrix
         end
-        function  computeCovariance(obj)
+        function  obj = computeCovariance(obj)
            
             [~,X] = obj.handleDataSample.getYX(obj.nLags);
             [obj.Omega, obj.Omegainv] = obj.computeCovarianceOfTheta( X, obj.etahat, obj.scedasticity );
         end
-        function computeVMAandDerivatives(obj, nNoncontemoraneousHorizons)
+        function obj = computeVMAandDerivatives(obj, nNoncontemoraneousHorizons)
             obj.VMA_ts_sh_ho = VecAR.getVMAfromAL(  obj.ALhat_n_x_np,  nNoncontemoraneousHorizons);
             obj.G_ts_sh_ho_dAL   = VecAR.getVMAderivatives(  obj.ALhat_n_x_np, nNoncontemoraneousHorizons);
         end

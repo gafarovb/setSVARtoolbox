@@ -30,13 +30,13 @@ classdef waitBarCustomized < handle
         end
         
         function elapsedTimeString =  elapsedTime( obj)
-                    elapsedTimeString = ['; Elapsed time: ' num2str( toc(obj.startTime)) ' sec' ];
+                    elapsedTimeString = ['; Elapsed time: ' num2str( round(toc(obj.startTime))) ' sec' ];
         end
         
         function estimatedTimeString = estimatedTime(obj,step)
             elapsedTime = toc(obj.startTime);
             averageTime = elapsedTime/step;
-            expTime = averageTime * (obj.maxSteps -step );
+            expTime = round( averageTime * (obj.maxSteps -step ));
             estimatedTimeString = ['; Estimated time: ' num2str(expTime) ' sec' ];
         end
         

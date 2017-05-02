@@ -11,7 +11,7 @@ classdef configFile < handle
         nLagsMax = 24; % -    maximum possible number of lags in BIC/AIC/HQIC
         
         %% reduced var
-        nNoncontemoraneousHorizons = 23;      % the number of horizons to compute the IRF
+        nNoncontemoraneousHorizons = 36;      % the number of horizons to compute the IRF
         scedasticity = 'homo'; % 'homo' = homoscedastic Omega, 'hetero' = heteroscedastic Omega
         babn1 = 1000;          % bab: number of bootstrap samples before bias correction
         babn2 = 1000;          % bab: number of bootstrap samples after  bias correction

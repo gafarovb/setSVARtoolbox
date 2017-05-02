@@ -1,4 +1,4 @@
-classdef stochasticInequalities < handle
+classdef stochasticInequalities 
     %stochasticInequalities Summary of this class goes here
     %   Detailed explanation goes here
     properties (Access = private)
@@ -36,9 +36,10 @@ classdef stochasticInequalities < handle
             
             gridPointInCS = true(nGridpoints,1);
             
-            for i = 1: nGridpoints
+            for i = 1: nGridpoints 
+
                 gridPointInCS(i) = obj.testGridPoints( obj.unitSphereGrid(i,:)', step1Level);
-                obj.waitBarWindow.showProgress(i);
+             %   obj.waitBarWindow.showProgress(i);
             end
             
             for i = nGridpoints: -1: 1
@@ -56,11 +57,11 @@ classdef stochasticInequalities < handle
             resampledResidual = obj.resampleResiduals( gridPoint);
             resampledSlack = obj.resampleSlacks( gridPoint);
             
-            Slack    = obj.originalSample.MIapproach.computeInequlaitySlackAtSphericalGridPoint(gridPoint);
+            Slack    = obj.originalSample.MIframework.computeInequlaitySlackAtSphericalGridPoint(gridPoint);
             SlackStandardized = Slack./std(resampledSlack);
             activeSet = obj.generalizedMomentSelection(SlackStandardized);
             
-            Residual = obj.originalSample.MIapproach.computeEqualityResidualAtSphericalGridPoint(gridPoint);
+            Residual = obj.originalSample.MIframework.computeEqualityResidualAtSphericalGridPoint(gridPoint);
             ResidualStandardized = Residual./std(resampledResidual);
             mmm = obj.modifiedMethodOfMoments( ResidualStandardized, SlackStandardized(activeSet));
             
@@ -93,42 +94,42 @@ classdef stochasticInequalities < handle
         function resampledObjectiveFunctions = resampleObjectiveFunctions(obj,gridPoint)
             nSamples = obj.getNsamples;
             
-            originalObjectiveFunctions = obj.originalSample.MIapproach.computeObjectiveFunctionsAtSphericalGridPoint( gridPoint);
+            originalObjectiveFunctions = obj.originalSample.MIframework.computeObjectiveFunctionsAtSphericalGridPoint( gridPoint);
             shape = size(originalObjectiveFunctions);
             
             samplingDimension = 3;
             resampledObjectiveFunctions = bootstrapSample( zeros(shape(1),shape(2), nSamples), samplingDimension);
             
             for i = 1: nSamples
-                resampledObjectiveFunctions.values(:,:,i) =  obj.samples(i).MIapproach.computeObjectiveFunctionsAtSphericalGridPoint(gridPoint)  ;
+                resampledObjectiveFunctions.values(:,:,i) =  obj.samples(i).MIframework.computeObjectiveFunctionsAtSphericalGridPoint(gridPoint)  ;
             end
             
         end
         function resampledResidual = resampleResiduals(obj,gridPoint)
             nSamples = obj.getNsamples;
             
-            Residual = obj.originalSample.MIapproach.computeEqualityResidualAtSphericalGridPoint(gridPoint);
+            Residual = obj.originalSample.MIframework.computeEqualityResidualAtSphericalGridPoint(gridPoint);
             nEqualities = size(Residual,1);
             
             resampledResidual = bootstrapSample(zeros(nEqualities,nSamples));
             independentNoise = obj.config.noiseStdToAvoidDeterministicConstraints * randn(nEqualities,nSamples);
             
             for i = 1: nSamples
-                resampledResidual.values(:,i) =  obj.samples(i).MIapproach.computeEqualityResidualAtSphericalGridPoint(gridPoint) + independentNoise(:,i)  ;
+                resampledResidual.values(:,i) =  obj.samples(i).MIframework.computeEqualityResidualAtSphericalGridPoint(gridPoint) + independentNoise(:,i)  ;
             end
         end
         function resampledSlack = resampleSlacks(obj,gridPoint)
             
             nSamples =  obj.getNsamples;
             
-            Slack    = obj.originalSample.MIapproach.computeInequlaitySlackAtSphericalGridPoint(gridPoint);
+            Slack    = obj.originalSample.MIframework.computeInequlaitySlackAtSphericalGridPoint(gridPoint);
             nInequalities = size(Slack,1);
             
             resampledSlack =    bootstrapSample( zeros(nInequalities, nSamples));
             independentNoise = obj.config.noiseStdToAvoidDeterministicConstraints * randn(nInequalities,nSamples);
             
             for i = 1: nSamples
-                resampledSlack.values(:,i)    =  obj.samples(i).MIapproach.computeInequlaitySlackAtSphericalGridPoint(gridPoint)  + independentNoise(:,i);
+                resampledSlack.values(:,i)    =  obj.samples(i).MIframework.computeInequlaitySlackAtSphericalGridPoint(gridPoint)  + independentNoise(:,i);
             end
         end
     end

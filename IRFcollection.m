@@ -55,15 +55,18 @@ classdef IRFcollection < IRF
             d = obj.matrixForm;
         end
         
-        function figureArray = plotPanel(obj)
+        function figureArray = plotPanel(obj,printFilePath)
             [nLines, nPlots] = size(obj);
             for j = 1:nPlots
-                figureArray(j) = figure(j);
+               figureArray(j) = figure;
                 for i = 1 : nLines
                     plot(obj(i,j));
                     hold on;
                 end
-           %  fn_print(figureArray(j), obj(i,j).getFileName);
+                if nargin>1
+                     fn_print(figureArray(j),[printFilePath filesep obj(i,j).getLabelTS]);
+                end
+            
             end
         end
     end
@@ -80,8 +83,9 @@ pos=get(h,'Position');
 set(h, 'PaperSize', [pos(3) pos(4)]);
 set(h, 'PaperPositionMode', 'manual');
 set(h, 'PaperPosition',[0 0 pos(3) pos(4)]);
-%eval(['print(','''-dpdf''',',',name,')'])
-commandString = ['''print(','''-depsc2''',',',name,')'''];
-eval(commandString);
+ 
+print(name,'-dpdf')
+print(name,'-depsc2')
+ 
 
 end
