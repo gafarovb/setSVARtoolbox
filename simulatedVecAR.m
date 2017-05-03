@@ -9,6 +9,7 @@ classdef simulatedVecAR < VecAR
         thetaCovT = [];
         nShocks = [];
         namesOfTS = [];
+        unitsOfMeasurement = [];
     end
     
 
@@ -17,6 +18,7 @@ classdef simulatedVecAR < VecAR
             if nargin~=0
                 obj.simulationSeed = simulationSeed;
                 obj.namesOfTS = design.getNamesOfTS;
+                obj.unitsOfMeasurement = design.getUnitsOfMeasurement;
                 obj.config = design.getConfig;
                 obj.nLags = obj.config.nLags ;
                 obj.nShocks = design.getN;
@@ -112,6 +114,9 @@ classdef simulatedVecAR < VecAR
         end
         function names =  getNames(obj)
             names = obj.namesOfTS;
+        end
+        function namesOfTS = getUnitsOfMeasurement(obj)
+            namesOfTS = obj.unitsOfMeasurement;
         end
     end
     

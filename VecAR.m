@@ -4,14 +4,14 @@ classdef (Abstract) VecAR
     properties  ( Access = protected)
         nLags = [] ;  %% The number "p" of lags in the SVAR model
         scedasticity;
-        config;     % handle to an object of configFile class
+        config;     % handle to an object of SVARconfiguration class
         cache;
     end
  
     methods
         function IRFObjectiveFunctions = getIRFObjectiveFunctions(obj)
-            switch (obj.config.cum)
-                case 'cum'
+            switch (obj.config.isCumulativeIRF)
+                case 'yes'
                     reducedFormIRFnonCum = obj.getVMA_ts_sh_ho;
                     IRFObjectiveFunctions = cumsum(reducedFormIRFnonCum,3);
                 otherwise
@@ -20,8 +20,8 @@ classdef (Abstract) VecAR
             
         end
         function IRFObjectiveFunctions = getIRFObjectiveFunctionsDerivatives(obj)
-            switch (obj.config.cum)
-                case 'cum'
+            switch (obj.config.isCumulativeIRF)
+                case 'yes'
                     reducedFormIRFnonCum = obj.getVMADerivatives_ts_sh_ho_dAL;
                     IRFObjectiveFunctions = cumsum(reducedFormIRFnonCum,3);
                 otherwise
@@ -65,6 +65,7 @@ classdef (Abstract) VecAR
         getN(obj);
         getTheta(obj);
         getNames(obj);
+        getUnitsOfMeasurement(obj);
         getCovarianceOfThetaT(obj);
     end
    

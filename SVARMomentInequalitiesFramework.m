@@ -66,11 +66,8 @@ classdef SVARMomentInequalitiesFramework < handle
             [confidenceBoundsLow,confidenceBoundsUp] = obj.momentInequalities.computeBonferroniCS(level);
             
             confidenceBoundsLow = obj.SVARfacade.enforceIRFRestrictions(confidenceBoundsLow) ;
-            confidenceBoundsLow = confidenceBoundsLow.setLabel(['Bonferroni lower two-sided CS with p=',num2str(level)]);
-            
             confidenceBoundsUp = obj.SVARfacade.enforceIRFRestrictions(confidenceBoundsUp) ;
-            confidenceBoundsUp = confidenceBoundsUp.setLabel(['Bonferroni upper two-sided CS with p=',num2str(level)]);
-            
+             
             confidenceBounds = [confidenceBoundsUp;confidenceBoundsLow];
             
         end

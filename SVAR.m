@@ -11,9 +11,8 @@ classdef SVAR < handle
     
     properties (Access = public)
         label = 'Unknown'; % Model label, e.g. MSG
-        MIframework; 
+        MIframework;
         analytic;
-        
     end
     
     properties (Access = private)
@@ -27,19 +26,19 @@ classdef SVAR < handle
             if nargin > 0
                 obj.VecARmodel = VecARmodel;
             else
-                warning('SVARtoolbox:noInput','Reduced-form VAR is not provided. Using the default VAR model and dataset')
                 obj.VecARmodel = estimatedVecAR; % create a reduced form VAR model
             end
-
+            
             config = obj.getConfig;
             if nargin <2
-                warning('SVARtoolbox:noInput','Identification scheme is not provided. Using the default scheme')
+                warning('estimatedVecAR:identification','Identification assumptions are not provided. Using the default scheme')
                 restMat = load(config.assumptionsFilename);
                 ID = IDassumptions( restMat);
             end
-            
+
             obj.label = config.SVARlabel;
-            obj.ID = ID;  
+            obj.ID = ID;
+            
             loadMIframework(obj);
             loadAnalyticFramwork(obj);
         end
@@ -48,7 +47,7 @@ classdef SVAR < handle
             config = obj.getConfig;
             rng(config.masterSeed,'twister');
             seedVector = randi( 1e7, nSimulations); % controls random number generation.
-            Samples(nSimulations) = SVAR; % preallocate memory; This line can creat warnings
+            evalc('Samples(nSimulations) = SVAR;'); % preallocate memory; evalc suppresses the warnings
             
             waitBarWindow = waitBarCustomized(  nSimulations);
             waitBarWindow.setMessage('Generating bootsrap samples...');
@@ -87,6 +86,16 @@ classdef SVAR < handle
         end
         function names = getNamesOfTS(obj)
             names = obj.VecARmodel.getNames;
+        end
+        function  unitsOfMeasurement = getUnitsOfMeasurement(obj)
+            unitsOfMeasurement =  obj.VecARmodel.getUnitsOfMeasurement;
+        end 
+        function tsDescr = getTSDescription(obj)
+           tsDescr =  [obj.getNamesOfTS;obj.getUnitsOfMeasurement];
+        end
+        
+        function shockLabel = getShockLabel(obj)
+            shockLabel = obj.ID.shockLabel;
         end
         function MaxHorizons = getMaxHorizons(obj)
             MaxHorizons = obj.VecARmodel.getMaxHorizons;
@@ -159,13 +168,46 @@ classdef SVAR < handle
         end
     end
     
+    
+    methods (Access = public)
+        function IRFCS = IRFtwoSidedCS(obj,level,type)
+            lineBreak = char(10);
 
-    methods
-        function IRFCS = twoSidedIRFCS(obj,level,type)
-            if type=='analytic'
-                IRFCS = obj.analytic.twoSidedIRFCS(level);
+            if nargin<2
+                warning(['Please provide confidence level.' lineBreak ...
+                    'Using level = 0.68  '])
+                level = 0.68;
+            end
+            isCorrectLevelRange = (level>0) & (level<1);
+            assert( isCorrectLevelRange, 'Please provide confidence level 0<p<1')
+     
+            
+            if nargin<3
+                warning(['Please provide type "Analytic" or "MI_Bonferroni".' lineBreak ...
+                    ' Running Analytic option '])
+                type = 'Analytic';
             end
             
+            switch type
+                case 'Analytic'
+                    disp(['Computing the two-sided CS with p=' num2str(level) ' using the analytic algorithm'  lineBreak ...
+                        'from Gafarov, B., M. Meier, and J. L. Montiel Olea (2017) ' lineBreak ...
+                        '"DELTA-METHOD INFERENCE FOR A CLASS OF SET-IDENTIFIED SVARS"  ']);
+                    IRFCS = obj.analytic.twoSidedIRFCS(level);
+                case 'MI_Bonferroni'
+                    disp(['Computing the two-sided CS  p=' num2str(level) ' using the Bonferroni-type algorithm'  lineBreak ...
+                        'from   Moon, H. R., F. Schorfheide, and E. Granziera (2013) ' lineBreak ...
+                        '"Inference for VARs Identified with Sign Restrictions"  ']);
+                    IRFCS = obj.MIframework.twosidedIRFCSbonferroni( level);
+                otherwise
+                warning(['Please provide type "Analytic" or "MI_Bonferroni".' lineBreak ...
+                    ' Running Analytic option ']);
+                IRFCS = IRFtwoSidedCS(obj,level,'Analytic');
+            end
+            
+        end
+        function IRF = estimatedIdentifiedSet(obj)
+            IRF = obj.analytic.identifiedSet;
         end
     end
     

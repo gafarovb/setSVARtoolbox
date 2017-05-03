@@ -25,7 +25,6 @@ classdef stochasticInequalities
     end
     methods
         function [lowerBoundIRF,upperBoundsIRF ] = computeBonferroniCS(obj,level)
-            
             alpha = 1-level;
             
             step1Level = 1 - obj.config.bonferroniStep1 * alpha;
@@ -36,12 +35,23 @@ classdef stochasticInequalities
             
             [lowerBounds, upperBounds ] = obj.computeConditionalIRFCS( gridPointInCS,step2Level);
             
-            namesTS = obj.originalSample.getNamesOfTS;
-            label = ['Bonferroni 2nd step CS with p= ' num2str(level) ];
-            lowerBoundIRF = IRFcollection( nanmin(lowerBounds(:,:,gridPointInCS),[],3), namesTS, label );
-            upperBoundsIRF = IRFcollection( nanmax(upperBounds(:,:,gridPointInCS),[],3), namesTS, label );
+            IRFDescription = descriptionBonferroniCS(obj,level);
+            TSDescription = obj.originalSample.getTSDescription;
+            lowerBoundIRF = IRFcollection( nanmin(lowerBounds(:,:,gridPointInCS),[],3), TSDescription, IRFDescription );
+            upperBoundsIRF = IRFcollection( nanmax(upperBounds(:,:,gridPointInCS),[],3),TSDescription, IRFDescription );
         end
-
+        
+        function IRFDescription = descriptionBonferroniCS(obj,level)
+            levelStr =   num2str(level);
+            SVARobj = obj.originalSample;
+            
+            IRFDescription = struct('tag','noTag',... % can be used in filenames
+                'legend',['Bonferroni 2nd step CS with p= ' levelStr ],...
+                'shock', SVARobj.getShockLabel,...
+                'SVARmodel', SVARobj.label,...
+                'type' , 'CS');
+            
+        end
 
         function activeSet = generalizedMomentSelection(obj,standardizefSlack)
             T = obj.originalSample.getT;
@@ -94,6 +104,8 @@ classdef stochasticInequalities
         function [lowerBounds, upperBounds ] = computeConditionalIRFCS(obj,gridPointInCS,step2Level)
             lowerBounds = obj.emptyIRF;
             upperBounds = obj.emptyIRF;
+            nGridpoints = size(gridPointInCS,1);
+            
             iFeasiblePoint = 0;
             obj.waitBarWindow = waitBarCustomized( sum(gridPointInCS));
             if isempty(gcp('nocreate'))

@@ -1,4 +1,4 @@
-classdef configFile < handle
+classdef SVARconfiguration < handle
     %configFile contains specification for SVAR objects
     %   Detailed explanation goes here
     
@@ -19,11 +19,11 @@ classdef configFile < handle
         largeNumber = 100000;  % FIXME: constant c from the paper 
         smallNumber = 1e-6;
         %% Svar
-        cum = 'cum';  % 'cum' = cumulative IRF responses
+        isCumulativeIRF = 'yes';  % 'yes' or 'no' 
         AndrewsSoaresKappa0 = 1.96;
         noiseStdToAvoidDeterministicConstraints = 1e-6;
         bonferroniStep1 = 0.5; 
-        nGridPoints = 100000;
+        nGridPoints = 10000;
         nBootstrapSamples = 1000;
         
         %% Specify shock

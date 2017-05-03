@@ -7,16 +7,21 @@ classdef IDassumptions < handle
     %       Last edited by Bulat Gafarov
     %%
     
-    
+    properties (Access = public)
+        shockLabel =[];
+    end 
     properties (Access = private)
         assumptionsMatrixInput;  % Matrix with columns: Var Hor S/Z Cum Shk
     end
 
     
     methods
-        function obj = IDassumptions(restMat)
-             obj.assumptionsMatrixInput =restMat ;
+        function obj = IDassumptions(restMatShort,shockLabel)
+             obj.assumptionsMatrixInput = obj.longForm(restMatShort) ;
+             obj.shockLabel = shockLabel;
         end
+        
+
         function matrix = getRestMat(obj)
             % read the restricitons matrix
             matrix = obj.assumptionsMatrixInput;
@@ -54,6 +59,9 @@ classdef IDassumptions < handle
         function signedOne = convertArestrictionToGeq( obj, aRestriction)
             signedOne = obj.assumptionsMatrixInput(aRestriction,3);
         end
+        
+        
+        
         
         function linearConstraintsAndDerivatives = getLinearConstraintsAndDerivatives( obj,objVecAR)
             %% -------------------------------------------------------------------------
@@ -117,6 +125,18 @@ classdef IDassumptions < handle
             
         end
     end
-    
+    methods (Static)
+        function assumptionsMatrixInput = longForm(restMatShort)
+            [nRows,nColumns] = size(restMatShort);
+            switch nColumns
+                case 5
+                    assumptionsMatrixInput = restMatShort;
+                case 4
+                    assumptionsMatrixInput = [restMatShort ones(nRows,1)];
+                otherwise
+                    error('IDAssumptions:IncorrectForm','Please provide matrix with columns  Var Hor S/Z Cum ')
+            end
+        end
+    end
 end
 

@@ -3,15 +3,15 @@ classdef IRFcollection < IRF
     %   Detailed explanation goes here
     
     methods
-        function  obj = IRFcollection(IRFmatrix,names,label)
+        function  obj = IRFcollection(IRFmatrix, TSdescriptions, IRFdescription)
             if nargin ~= 0
                 nElements = size(IRFmatrix,1);
                 obj(nElements) = IRFcollection;
                 for i = 1:nElements
-                    currentIRF = IRF(IRFmatrix(i,:),names(i),label);
+                    currentIRF = IRF(IRFmatrix(i,:),TSdescriptions(:,i), IRFdescription);
                     obj(i).Values = currentIRF.Values;
-                    obj(i).labelTS = names(i);
-                    obj(i).label = label;
+                    obj(i).TSdescription = TSdescriptions(:,i);
+                    obj(i).description = IRFdescription;
                 end
             end
         end
@@ -21,28 +21,20 @@ classdef IRFcollection < IRF
                 obj(i).Values=values(i,:);
             end
         end
-        function  obj = setLabel(obj, label)
+        function  obj = setDescription(obj, description)
             nElements = size(obj,2);
             for i = 1 : nElements
-                obj(i).label=label;
+                obj(i).description=description;
             end
         end
-        function obj = setUnits(obj,unitsOfMeasurement)
-            [nLines, nPlots] = size(obj);
-            for j = 1:nPlots
-                for i = 1 : nLines
-                    obj(i,j).unitsOfMeasurement = unitsOfMeasurement;
-                end
+        
+        function  obj = setDescriptionField(obj, fieldName, newString)
+            nElements = size(obj,2);
+            for i = 1 : nElements
+                obj(i).description.(fieldName) = newString;
             end
         end
-        function obj = setMarker(obj,markerStr)
-            [nLines, nPlots] = size(obj);
-            for j = 1:nPlots
-                for i = 1 : nLines
-                    obj(i,j).markerString=markerStr;
-                end
-            end
-        end
+ 
         function  irfMat =  matrixForm(obj)
             nElements = size(obj,2);
             maxHorizon = size(obj(1).Values,2);
@@ -55,7 +47,7 @@ classdef IRFcollection < IRF
             d = obj.matrixForm;
         end
         
-        function figureArray = plotPanel(obj,printFilePath)
+        function figureArray = plotPanel(obj,printFilePathAndPrefix)
             [nLines, nPlots] = size(obj);
             for j = 1:nPlots
                figureArray(j) = figure;
@@ -64,7 +56,7 @@ classdef IRFcollection < IRF
                     hold on;
                 end
                 if nargin>1
-                     fn_print(figureArray(j),[printFilePath filesep obj(i,j).getLabelTS]);
+                     fn_print(figureArray(j),[printFilePathAndPrefix obj(i,j).getLabelTS]);
                 end
             
             end
@@ -83,9 +75,9 @@ pos=get(h,'Position');
 set(h, 'PaperSize', [pos(3) pos(4)]);
 set(h, 'PaperPositionMode', 'manual');
 set(h, 'PaperPosition',[0 0 pos(3) pos(4)]);
- 
+
 print(name,'-dpdf')
 print(name,'-depsc2')
- 
+
 
 end

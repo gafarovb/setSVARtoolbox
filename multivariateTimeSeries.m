@@ -3,14 +3,26 @@ classdef multivariateTimeSeries < handle
     %   Detailed explanation goes here
     
     properties (Access = private )
-        labelsOfTimeSeries = [];
         tsInColumns = [] ;
     end
-    
+    properties (Access = public)
+        labelsOfTimeSeries = [];
+        unitsOfMeasurement = [];
+    end
     methods
-        function obj = multivariateTimeSeries(tsInColumns, labelsOfTimeSeries )
+        function obj = multivariateTimeSeries(tsInColumns, TSdescription )
             obj.tsInColumns  = tsInColumns;
-            obj.labelsOfTimeSeries  = labelsOfTimeSeries;
+            if nargin<2
+                TSdescription = repmat({'UnknownTimeSeries'},1,countTS(obj));
+            end
+            
+            obj.labelsOfTimeSeries  = TSdescription(1,:);
+            if (size(TSdescription,1)<2)
+                unitsOfMeasurement = repmat({'Units of measurement'},1,countTS(obj));
+            else
+                unitsOfMeasurement = TSdescription(2,:);
+            end
+            obj.unitsOfMeasurement = unitsOfMeasurement;
         end
         function n = countTS(obj)
             [~,n] = size( obj.tsInColumns);
@@ -28,6 +40,10 @@ classdef multivariateTimeSeries < handle
         function names = getNames(obj)
             names = obj.labelsOfTimeSeries;
         end
+        function unitsOfMeasurement = getUnitsOfMeasurement(obj)
+            unitsOfMeasurement = obj.unitsOfMeasurement;
+        end
+        
 
     end
 

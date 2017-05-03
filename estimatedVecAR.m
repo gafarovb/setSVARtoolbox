@@ -8,12 +8,11 @@ classdef estimatedVecAR < VecAR
         estimates;
     end
     
-
     methods  % constructors
         function obj = estimatedVecAR( config,dataset)
             if nargin<1
-                warning('Configruation  is not provided. Using the default VAR model and dataset')
-                obj.config = configFile;
+                warning('estimatedVecAR:noConfiguration', 'Configruation  is not provided. Using the default VAR model')
+                obj.config = SVARconfiguration;
             else
                 obj.config = config;
             end
@@ -21,7 +20,7 @@ classdef estimatedVecAR < VecAR
             obj.scedasticity = obj.config.scedasticity ;
             
             if nargin<2
-                warning('Dataset is not provided. Using the default dataset')
+                warning('estimatedVecAR:noDataset','Dataset is not provided. Using the default dataset')
                 [tsInColumns, labelsOfTimeSeries ] = obj.readDataFromFile(obj.config);
                 dataset = multivariateTimeSeries( tsInColumns, labelsOfTimeSeries );
             end
@@ -41,6 +40,9 @@ classdef estimatedVecAR < VecAR
     methods  % basic characteristics
         function namesOfTS = getNames(obj)
             namesOfTS = obj.dataSample.getNames;
+        end
+        function namesOfTS = getUnitsOfMeasurement(obj)
+            namesOfTS = obj.dataSample.getUnitsOfMeasurement;
         end
         function n = getN(obj)
             n = obj.dataSample.countTS;

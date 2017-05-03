@@ -5,23 +5,25 @@ classdef IRF
     
     properties (Access = public)
         Values = [];
-        labelTS = 'Unnamed TS';
-        label = 'Unknown IRF' ;
-        model = 'UnknownModel';
-        unitsOfMeasurement = '% change';
-        markerString = '-';
+        TSdescription = ['Unnamed TS' 'Units'] ;
+        description = struct('tag','noTag',... % can be used in filenames
+                'legend','Unknown IRF',...
+                'shock', 'Unknown shock',...
+                'SVARmodel', 'Unkown model',...
+                'type' , 'pointEstimates');
     end
  
     
     methods
-        function obj = IRF(vectorIRF, labelTS,label)
+        function obj = IRF(vectorIRF, TSdescription, description)
             % inputs
             %   vectorIRF   : IRF in form of a vector
             %   labelTS     : name of ts corresponding to this IRF
-            %   label       : name of the IRF. e.g. Upper bound delta CS
+            %   description       
+            
           if nargin~=0  
-            obj.labelTS = labelTS;
-            obj.label   = label;
+            obj.TSdescription = TSdescription;
+            obj.description   = description;
             obj.Values   = vectorIRF;
           end
         end
@@ -54,27 +56,43 @@ classdef IRF
         function nHorizons = nNoncontemoraneousHorizons(obj)
             nHorizons = size(obj.Values,2)-1;
         end
-        function obj = setLabel(obj,label)
-            obj.label = label;
+        function obj = setDescription(obj,description)
+            obj.label = description;
         end 
-        function obj = setUnits(obj,unitString)
-            obj.unitsOfMeasurement = unitString;
+        function obj = setDescriptionField(obj,fieldName, newString)
+            obj.description.(fieldName) = newString;
         end 
         function fileName = getLabelTS(obj)
-            fileName =  char(obj.labelTS{1})  ;
+            fileName =  char(obj.TSdescription{1,1})  ;
         end
-  
         function figHandle = plot(obj)
-            
             maxHorizon = obj.nNoncontemoraneousHorizons;
-            figHandle = plot(0:1:maxHorizon, obj.Values,['k'  obj.markerString ],'LineWidth',2);
-            title(obj.labelTS{1},'Interpreter','tex','FontSize',12); 
+            figHandle = plot(0:1:maxHorizon, obj.Values,['k'  obj.getMarker ],'LineWidth',2);
+            title(obj.TSdescription{1,1},'Interpreter','tex','FontSize',12); 
             hold on; 
-            ylabel(obj.unitsOfMeasurement); 
+            ylabel(obj.TSdescription{2,1}); 
             xlabel('Months after shock');
             set(gca,'LineWidth',2.0);
             grid on; 
             box off; 
+        end
+        
+ 
+        function marker = getMarker(obj)
+            switch obj.description.type
+                case 'pointEstimates'
+                    marker = '-';
+                case 'CS'
+                    marker = ':';
+                case 'MC'
+                    marker = 'o';
+                case 'std'
+                    marker = '--';
+                otherwise
+                    marker = 'x';
+            end
+                
+            
         end
     end
     

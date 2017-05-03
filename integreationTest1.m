@@ -1,6 +1,6 @@
 
-UMPbaselineConfiguration = configFile;
-UMPbaselineConfiguration.cum ='cum';
+UMPbaselineConfiguration = SVARconfiguration;
+UMPbaselineConfiguration.isCumulativeIRF ='yes';
 UMPbaselineConfiguration.SVARlabel = 'UMPbaseline';
 load(['data' filesep 'UMP']) % the data is prepared outside this m-file
 
