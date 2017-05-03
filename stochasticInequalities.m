@@ -7,7 +7,7 @@ classdef stochasticInequalities
         unitSphereGrid;
         config;
         waitBarWindow;
-    end
+     end
     
     methods
         function obj = stochasticInequalities(SVARobj)
@@ -15,10 +15,6 @@ classdef stochasticInequalities
             obj.originalSample = SVARobj;
             obj.samples = SVARobj.generateSamplesFromAsymptoticDistribution( obj.getNsamples);
             obj.unitSphereGrid = obj.generateNdimUnitSphereGrid(SVARobj.getN, obj.getNgridPoints);
-            
-            obj.waitBarWindow = waitBarCustomized(  obj.getNgridPoints);
-            obj.waitBarWindow.setMessage('Computing Bonferroni CS, stage 1 ');
-
         end
         function b = getNsamples(obj)
             b = obj.config.nBootstrapSamples;
@@ -28,32 +24,37 @@ classdef stochasticInequalities
         end
     end
     methods
-        function [lowerBoundIRF, upperBoundsIRF] = computeBonferroniCS(obj,level)
+        function [lowerBoundIRF,upperBoundsIRF ] = computeBonferroniCS(obj,level)
+            
             alpha = 1-level;
+            
             step1Level = 1 - obj.config.bonferroniStep1 * alpha;
             step2Level = 1 - (1 - obj.config.bonferroniStep1) * alpha;
-            nGridpoints = obj.getNgridPoints;
             
-            gridPointInCS = true(nGridpoints,1);
+            gridPointInCS = obj.testAllPoints(step1Level);
+            obj.assertIfNoFeasiblePointsFound(gridPointInCS);
             
-            for i = 1: nGridpoints 
-
-                gridPointInCS(i) = obj.testGridPoints( obj.unitSphereGrid(i,:)', step1Level);
-             %   obj.waitBarWindow.showProgress(i);
-            end
-            
-            for i = nGridpoints: -1: 1
-                if  gridPointInCS(i)
-                    [lowerBounds(:,:,i), upperBounds(:,:,i) ] = obj.computeCSObjectiveFunctions( obj.unitSphereGrid(i,:)', step2Level);
-                end
-            end
+            [lowerBounds, upperBounds ] = obj.computeConditionalIRFCS( gridPointInCS,step2Level);
             
             namesTS = obj.originalSample.getNamesOfTS;
             label = ['Bonferroni 2nd step CS with p= ' num2str(level) ];
-            lowerBoundIRF = IRFcollection( nanmin(lowerBounds,[],3), namesTS, label );
-            upperBoundsIRF = IRFcollection( nanmax(upperBounds,[],3), namesTS, label );
+            lowerBoundIRF = IRFcollection( nanmin(lowerBounds(:,:,gridPointInCS),[],3), namesTS, label );
+            upperBoundsIRF = IRFcollection( nanmax(upperBounds(:,:,gridPointInCS),[],3), namesTS, label );
         end
-        function isInTheCS = testGridPoints(obj,gridPoint,level)
+
+
+        function activeSet = generalizedMomentSelection(obj,standardizefSlack)
+            T = obj.originalSample.getT;
+            config = obj.originalSample.getConfig;
+            f_T = config.AndrewsSoaresKappa0 * config.andrewsSoaresTunningSequence(T);
+            slackSet = (standardizefSlack>=f_T);
+            activeSet = ~slackSet;
+        end
+        function quantileMMM = computeQuantileOfModifiedMethodOfMoments(obj,resids,slacks,level)
+            mmmResampled = bootstrapSample(obj.modifiedMethodOfMoments(resids.studentized,slacks.studentized));
+            quantileMMM = mmmResampled.quantile(level);
+        end
+        function isInTheCS = testGridPoint(obj,gridPoint,level)
             resampledResidual = obj.resampleResiduals( gridPoint);
             resampledSlack = obj.resampleSlacks( gridPoint);
             
@@ -70,18 +71,51 @@ classdef stochasticInequalities
             
             isInTheCS = (mmm <= quantileMMM);
         end
-        function activeSet = generalizedMomentSelection(obj,standardizefSlack)
-            T = obj.originalSample.getT;
-            config = obj.originalSample.getConfig;
-            f_T = config.AndrewsSoaresKappa0 * config.andrewsSoaresTunningSequence(T);
-            slackSet = (standardizefSlack>=f_T);
-            activeSet = ~slackSet;
+        function gridPointInCS = testAllPoints(obj,step1Level)
+            nGridpoints = obj.getNgridPoints;
+            obj.waitBarWindow = waitBarCustomized(  obj.getNgridPoints);
+            gridPointInCS = false(nGridpoints,1);
+            
+            if isempty(gcp('nocreate'))
+                obj.waitBarWindow.setMessage('Computing Bonferroni CS, Step 1');
+                for i = 1:nGridpoints
+                    gridPointInCS(i) = obj.testGridPoint( obj.unitSphereGrid(i,:)', step1Level);
+                    obj.waitBarWindow.showProgress( i);
+                end
+            else
+                obj.waitBarWindow.setMessage('Computing Bonferroni CS, Step 1, parallel mode');
+                obj.waitBarWindow.showProgress( 1);
+                parfor i = 1:nGridpoints
+                    gridPointInCS(i) = testGridPoint(obj, obj.unitSphereGrid(i,:)', step1Level);
+                end
+            end
+            delete(obj.waitBarWindow);
         end
-        function quantileMMM = computeQuantileOfModifiedMethodOfMoments(obj,resids,slacks,level)
-            mmmResampled = bootstrapSample(obj.modifiedMethodOfMoments(resids.studentized,slacks.studentized));
-            quantileMMM = mmmResampled.quantile(level);
+        function [lowerBounds, upperBounds ] = computeConditionalIRFCS(obj,gridPointInCS,step2Level)
+            lowerBounds = obj.emptyIRF;
+            upperBounds = obj.emptyIRF;
+            iFeasiblePoint = 0;
+            obj.waitBarWindow = waitBarCustomized( sum(gridPointInCS));
+            if isempty(gcp('nocreate'))
+                obj.waitBarWindow.setMessage(['Computing Bonferroni CS, Step 2 (' num2str(sum(gridPointInCS)) ' feasible point found)']);
+                for i = 1: nGridpoints
+                    if gridPointInCS(i)
+                        [lowerBounds(:,:,i), upperBounds(:,:,i) ] = obj.computeCSObjectiveFunctionsAtGridPoint( obj.unitSphereGrid(i,:)', step2Level);
+                        iFeasiblePoint = iFeasiblePoint+1;
+                        obj.waitBarWindow.showProgress( iFeasiblePoint);
+                    end
+                end
+            else
+                obj.waitBarWindow.setMessage(['Computing Bonferroni CS, Step 2 (' num2str(sum(gridPointInCS)) ' feasible point found), parallel mode']);
+                obj.waitBarWindow.showProgress( 1);
+
+                parfor i = 1:nGridpoints
+                    [lowerBounds(:,:,i), upperBounds(:,:,i) ] = computeCSObjectiveFunctionsAtGridPoint(obj, obj.unitSphereGrid(i,:)', step2Level);
+                end
+            end
+            delete(obj.waitBarWindow);
         end
-        function [lowerBound, upperBound] = computeCSObjectiveFunctions(obj,gridPoint, level)
+        function [lowerBound, upperBound] = computeCSObjectiveFunctionsAtGridPoint(obj,gridPoint, level)
             lowerQ = (1 - level)/2;
             upperQ = 1 - lowerQ;
             resampledObjectiveFunctions = obj.resampleObjectiveFunctions( gridPoint);
@@ -132,6 +166,9 @@ classdef stochasticInequalities
                 resampledSlack.values(:,i)    =  obj.samples(i).MIframework.computeInequlaitySlackAtSphericalGridPoint(gridPoint)  + independentNoise(:,i);
             end
         end
+        function emptyArray =  emptyIRF(obj)
+            emptyArray =  NaN(obj.originalSample.getN, obj.originalSample.getMaxHorizons, obj.getNgridPoints);
+         end
     end
     methods(Static)
         function gridOnSphere = generateNdimUnitSphereGrid(dimension,nGridPoints )
@@ -144,6 +181,12 @@ classdef stochasticInequalities
             jointVector = [resid;slack .* (slack<=0)];
             mmm = sum(jointVector.*jointVector,1);
         end
+        function assertIfNoFeasiblePointsFound(gridPointInCS)
+            if sum(gridPointInCS)==0
+                error('SVAR_CSBonferroni:noFeasiblePointFound','No feasible point found. Try a larger number of the gridpoints.');
+            end
+        end
+       
     end
 end
 

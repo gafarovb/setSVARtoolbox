@@ -23,8 +23,8 @@ classdef configFile < handle
         AndrewsSoaresKappa0 = 1.96;
         noiseStdToAvoidDeterministicConstraints = 1e-6;
         bonferroniStep1 = 0.5; 
-        nGridPoints = 5000;
-        nBootstrapSamples = 500;
+        nGridPoints = 100000;
+        nBootstrapSamples = 1000;
         
         %% Specify shock
         % solve for IRF bounds of specified shock

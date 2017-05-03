@@ -5,8 +5,9 @@ classdef (Abstract) VecAR
         nLags = [] ;  %% The number "p" of lags in the SVAR model
         scedasticity;
         config;     % handle to an object of configFile class
+        cache;
     end
-    
+ 
     methods
         function IRFObjectiveFunctions = getIRFObjectiveFunctions(obj)
             switch (obj.config.cum)
@@ -31,6 +32,31 @@ classdef (Abstract) VecAR
         function configHandle = getConfig (obj)
             configHandle = obj.config;
         end
+        function obj = precomputeCache(obj)
+            obj.cache.vecFromVech = converter.getVecFromVech(obj.getN);
+            obj.cache.G = getVMADerivatives_ts_sh_ho_dAL(obj)  ;
+            obj.cache.VMA_ts_sh_ho = getVMA_ts_sh_ho(obj);
+            obj.cache.Sigma = getSigma(obj);
+        end
+        function [AL_n_x_np,Sigma] =  ALSigmaFromThetaNandP(obj, theta, nLags) 
+            nShocks = obj.getN;
+            dAL = nShocks*nShocks*nLags;
+            vecAL = theta(1:dAL);
+            AL_n_x_np  = reshape(vecAL,[nShocks, nShocks*nLags] );
+            
+            vechSigma = theta((dAL+1):end);
+            
+            if isfield( obj.cache, 'vecFromVech')
+                vecFromVech = obj.cache.vecFromVech;
+            else
+                vecFromVech = converter.getVecFromVech( nShocks);
+            end
+            vecSigma =  vecFromVech * vechSigma;
+            Sigma = reshape(vecSigma,[nShocks,nShocks]);
+        end
+        function MaxHorizons = getMaxHorizons(obj)
+            MaxHorizons = obj.config.nNoncontemoraneousHorizons+1;
+        end
     end
     methods (Abstract)
         getVMA_ts_sh_ho(obj);
@@ -41,7 +67,7 @@ classdef (Abstract) VecAR
         getNames(obj);
         getCovarianceOfThetaT(obj);
     end
- 
+   
     methods (Access = public, Static)
         function theta = thetaFromALSigma(AL_n_x_np,Sigma)
             %% this funciton computes the vector of the reduced form parameters, theta vector
@@ -169,18 +195,8 @@ classdef (Abstract) VecAR
             
             
         end
-        function [AL_n_x_np,Sigma] =  ALSigmaFromThetaNandP(theta,nShocks,nLags) 
-            dAL = nShocks*nShocks*nLags;
-            vecAL = theta(1:dAL);
-            AL_n_x_np  = reshape(vecAL,[nShocks, nShocks*nLags] );
-            
-            vechSigma = theta((dAL+1):end);
-            vecFromVech = converter.getVecFromVech(nShocks);
 
-            vecSigma =  vecFromVech * vechSigma;
-            Sigma = reshape(vecSigma,[nShocks,nShocks]);
-        end
- 
+        
     end
     
 end

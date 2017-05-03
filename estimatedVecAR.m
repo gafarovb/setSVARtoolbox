@@ -6,7 +6,6 @@ classdef estimatedVecAR < VecAR
     properties (Access = protected)
         dataSample;
         estimates;
-        
     end
     
 
@@ -29,6 +28,7 @@ classdef estimatedVecAR < VecAR
             
             obj.dataSample = dataset;
             obj.estimates = LSestimatesVAR( obj.dataSample, obj.nLags,obj.config.nNoncontemoraneousHorizons, obj.scedasticity);
+            obj = precomputeCache(obj);
         end
         
         function [tsInColumns, labelsOfTimeSeries ]= readDataFromFile(obj,config)
@@ -67,7 +67,11 @@ classdef estimatedVecAR < VecAR
     end
     methods  % Represetnations
         function VMA_ts_sh_ho = getVMA_ts_sh_ho(obj)
-            VMA_ts_sh_ho = obj.estimates.getVMA_ts_sh_ho( obj.config.nNoncontemoraneousHorizons);
+            if isfield(obj.cache,'VMA_ts_sh_ho')
+                VMA_ts_sh_ho = obj.cache.VMA_ts_sh_ho;
+            else
+                VMA_ts_sh_ho = obj.estimates.getVMA_ts_sh_ho( obj.config.nNoncontemoraneousHorizons);
+            end
         end
         function G = getVMADerivatives_ts_sh_ho_dAL(obj)
             G = obj.estimates.getVMADerivatives;

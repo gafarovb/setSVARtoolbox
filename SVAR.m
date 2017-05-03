@@ -13,11 +13,13 @@ classdef SVAR < handle
         label = 'Unknown'; % Model label, e.g. MSG
         MIframework; 
         analytic;
+        
     end
     
     properties (Access = private)
         VecARmodel  = [];
         ID = [] ; %% An object with restrictions
+        cache;
     end
     
     methods  % constructors
@@ -48,9 +50,13 @@ classdef SVAR < handle
             seedVector = randi( 1e7, nSimulations); % controls random number generation.
             Samples(nSimulations) = SVAR; % preallocate memory; This line can creat warnings
             
+            waitBarWindow = waitBarCustomized(  nSimulations);
+            waitBarWindow.setMessage('Generating bootsrap samples...');
+            
             for i = 1 : nSimulations
                 sampleVecAR = simulatedVecAR(seedVector(i), obj);
                 Samples(i) = SVAR(sampleVecAR, obj.ID);
+                waitBarWindow.showProgress( i);
             end
             
         end
@@ -82,6 +88,9 @@ classdef SVAR < handle
         function names = getNamesOfTS(obj)
             names = obj.VecARmodel.getNames;
         end
+        function MaxHorizons = getMaxHorizons(obj)
+            MaxHorizons = obj.VecARmodel.getMaxHorizons;
+        end
         function OmegaT = getCovarianceOfThetaT(obj)
             OmegaT = obj.VecARmodel.getCovarianceOfThetaT;
         end
@@ -89,7 +98,12 @@ classdef SVAR < handle
             restMat = obj.ID.getRestMat;
         end
         function linearConstraintsAndDerivatives = getLinearConstraintsAndDerivatives(obj)
-            linearConstraintsAndDerivatives = obj.ID.getLinearConstraintsAndDerivatives(obj.VecARmodel);
+            if isfield(obj.cache,'linearConstraintsAndDerivatives')
+                linearConstraintsAndDerivatives = obj.cache.linearConstraintsAndDerivatives;
+            else
+                linearConstraintsAndDerivatives = obj.ID.getLinearConstraintsAndDerivatives(obj.VecARmodel);
+                obj.cache.linearConstraintsAndDerivatives= linearConstraintsAndDerivatives;
+            end
         end
         function objectiveFunctions = getIRFObjectiveFunctions(obj)
             objectiveFunMat = obj.VecARmodel.getIRFObjectiveFunctions;

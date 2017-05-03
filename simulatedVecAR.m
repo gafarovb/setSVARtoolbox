@@ -9,8 +9,9 @@ classdef simulatedVecAR < VecAR
         thetaCovT = [];
         nShocks = [];
         namesOfTS = [];
-     end
+    end
     
+
     methods
         function obj = simulatedVecAR( simulationSeed , design)
             if nargin~=0
@@ -20,8 +21,11 @@ classdef simulatedVecAR < VecAR
                 obj.nLags = obj.config.nLags ;
                 obj.nShocks = design.getN;
                 obj = generateThetaFromNormal(obj,design);
+                obj = precomputeCache(obj);
             end
         end
+
+         
         function nShocks = getN(obj)
             nShocks  = obj.nShocks;
         end
@@ -73,10 +77,14 @@ classdef simulatedVecAR < VecAR
             
         end
         function Sigma = getSigma(obj)
-            [~,Sigma] =  obj.ALSigmaFromThetaNandP( obj.theta, obj.getN, obj.nLags);
+            if isfield(obj.cache,'Sigma') 
+                Sigma = obj.cache.Sigma;
+            else
+                [~,Sigma] =  obj.ALSigmaFromThetaNandP( obj.theta, obj.nLags);
+            end
         end
         function AL_n_x_np = getAL_n_x_np(obj)
-            [AL_n_x_np,~] =  obj.ALSigmaFromThetaNandP( obj.theta, obj.getN, obj.nLags);
+            [AL_n_x_np,~] =  obj.ALSigmaFromThetaNandP( obj.theta,  obj.nLags);
         end
         function thetaCovT = getCovarianceOfThetaT(obj)
             thetaCovT = obj.thetaCovT;
@@ -85,14 +93,22 @@ classdef simulatedVecAR < VecAR
             theta = obj.theta;
         end
         function VMA_ts_sh_ho = getVMA_ts_sh_ho(obj)
-            AL_n_x_np = obj.getAL_n_x_np;
-            hori = obj.config.nNoncontemoraneousHorizons;
-            VMA_ts_sh_ho = obj.getVMAfromAL( AL_n_x_np, hori);
+            if isfield(obj.cache,'VMA_ts_sh_ho') 
+                VMA_ts_sh_ho = obj.cache.VMA_ts_sh_ho;
+            else
+                AL_n_x_np = obj.getAL_n_x_np;
+                hori = obj.config.nNoncontemoraneousHorizons;
+                VMA_ts_sh_ho = obj.getVMAfromAL( AL_n_x_np, hori);
+            end
         end
         function G = getVMADerivatives_ts_sh_ho_dAL(obj)          
-            AL_n_x_np = obj.getAL_n_x_np;
-            hori = obj.config.nNoncontemoraneousHorizons;
-            G = obj.getVMAderivatives( AL_n_x_np, hori);
+            if isfield(obj.cache, 'G')   
+                G = obj.cache.G;
+            else
+                AL_n_x_np = obj.getAL_n_x_np;
+                hori = obj.config.nNoncontemoraneousHorizons;
+                G = obj.getVMAderivatives( AL_n_x_np, hori);
+            end
         end
         function names =  getNames(obj)
             names = obj.namesOfTS;

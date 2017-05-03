@@ -23,21 +23,21 @@ classdef waitBarCustomized < handle
                     obj.startTime = tic;
                     obj.waitBarHandle = waitbar(currentProgress , [obj.messageText obj.elapsedTime obj.estimatedTime(step)]  );
                 case obj.maxSteps
-                    close( obj.waitBarHandle);
+                    delete( obj.waitBarHandle);
                 otherwise
                     waitbar( currentProgress, obj.waitBarHandle, [obj.messageText obj.elapsedTime obj.estimatedTime(step)]);
             end
         end
         
         function elapsedTimeString =  elapsedTime( obj)
-                    elapsedTimeString = ['; Elapsed time: ' num2str( round(toc(obj.startTime))) ' sec' ];
+                    elapsedTimeString = [sprintf('\n') 'Elapsed time: ' num2str( round(toc(obj.startTime))) ' sec' ];
         end
         
         function estimatedTimeString = estimatedTime(obj,step)
             elapsedTime = toc(obj.startTime);
             averageTime = elapsedTime/step;
             expTime = round( averageTime * (obj.maxSteps -step ));
-            estimatedTimeString = ['; Estimated time: ' num2str(expTime) ' sec' ];
+            estimatedTimeString = [sprintf('\n') 'Estimated time: ' num2str(expTime) ' sec' ];
         end
         
     end
