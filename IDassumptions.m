@@ -8,7 +8,7 @@ classdef IDassumptions < handle
     %%
     
     properties (Access = public)
-        shockLabel =[];
+        shockLabel ='UnknownShock';
     end 
     properties (Access = private)
         assumptionsMatrixInput;  % Matrix with columns: Var Hor S/Z Cum Shk
@@ -16,12 +16,40 @@ classdef IDassumptions < handle
 
     
     methods
-        function obj = IDassumptions(restMatShort,shockLabel)
+        function obj = IDassumptions(restMatShort, shockLabel)
              obj.assumptionsMatrixInput = obj.longForm(restMatShort) ;
-             obj.shockLabel = shockLabel;
+             obj.assertAssumptions;
+             if nargin>1
+                obj.shockLabel = shockLabel;
+             end
         end
         
+        function maxTS  = getMaxTS(obj)
+            maxTS = max(obj.assumptionsMatrixInput(:,1));
+        end
+        function maxTS  = getMaxHorizon(obj)
+            maxTS = max(obj.assumptionsMatrixInput(:,2));
+        end
 
+        function t=  tableForm(obj)
+            restMat = obj.assumptionsMatrixInput;
+            nAssumptions = size(restMat,1);
+            restrictionType = [{'-'},{'0'},{'+'}];
+            cumType = [{'no'}, {'yes'}];
+ 
+            t = table;
+            t.TimeSeries = restMat(:,1);
+            t.Horizon = restMat(:,2);
+            indexShift = 2;
+            t.Type = restrictionType( indexShift + restMat(:,3))';
+            indexShiftCumulative = 1;
+            t.Cumulative = cumType( restMat(:,4) + indexShiftCumulative)';
+            t.Shock = repmat(obj.shockLabel,nAssumptions,1);
+        end
+        
+        function disp(obj)
+            disp(tableForm(obj));
+        end
         function matrix = getRestMat(obj)
             % read the restricitons matrix
             matrix = obj.assumptionsMatrixInput;
@@ -61,7 +89,23 @@ classdef IDassumptions < handle
         end
         
         
-        
+        function assertAssumptions(obj)
+            restMat = obj.assumptionsMatrixInput;
+            nAssumptions = size(restMat,1);
+            for i = 1 : nAssumptions
+                TSindexIsCorrect = (restMat(i,1) - round(restMat(i,1)) == 0) & (restMat(i,1)>0);
+                assert( TSindexIsCorrect ,'Time series index must be positive integer') 
+                
+                HorizonIsCorrect = (restMat(i,2) - round(restMat(i,2)) == 0) & (restMat(i,2)>=0);
+                assert( HorizonIsCorrect ,'Horizons index must be positive integer') 
+                
+                testRestrictionType = (restMat(i,3)==-1) | (restMat(i,3)== 1) | (restMat(i,3)== 0);
+                assert( testRestrictionType ,'Restriction type must be -1 (negative), 0 (zero), or 1 (positive)') 
+
+                testCum =   (restMat(i,4)== 1) | (restMat(i,4)== 0);
+                assert( testCum ,'Cumulative indicator must be 0 (non-cumulative) or 1 (cumulative)') 
+            end
+        end
         
         function linearConstraintsAndDerivatives = getLinearConstraintsAndDerivatives( obj,objVecAR)
             %% -------------------------------------------------------------------------

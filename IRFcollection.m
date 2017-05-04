@@ -4,49 +4,85 @@ classdef IRFcollection < IRF
     
     methods
         function  obj = IRFcollection(IRFmatrix, TSdescriptions, IRFdescription)
+
             if nargin ~= 0
                 nElements = size(IRFmatrix,1);
                 obj(nElements) = IRFcollection;
                 for i = 1:nElements
-                    currentIRF = IRF(IRFmatrix(i,:),TSdescriptions(:,i), IRFdescription);
-                    obj(i).Values = currentIRF.Values;
-                    obj(i).TSdescription = TSdescriptions(:,i);
-                    obj(i).description = IRFdescription;
+                    obj(i).Values = IRFmatrix(i,:);
+                    if ~isempty(TSdescriptions)
+                        obj(i).TSdescription = TSdescriptions(:,i);
+                    end
+                    if ~isempty(IRFdescription)
+                        obj(i).description = IRFdescription;
+                    end
+                    
                 end
             end
         end
         function  obj = setValues(obj,values)
-            nElements = size(obj,2);
+            nElements = size(obj,1) * size(obj,2);
             for i = 1 : nElements
                 obj(i).Values=values(i,:);
             end
         end
         function  obj = setDescription(obj, description)
-            nElements = size(obj,2);
+            nElements = size(obj,1) * size(obj,2);
             for i = 1 : nElements
                 obj(i).description=description;
             end
         end
         
         function  obj = setDescriptionField(obj, fieldName, newString)
-            nElements = size(obj,2);
+            nElements = size(obj,1) * size(obj,2);
             for i = 1 : nElements
                 obj(i).description.(fieldName) = newString;
             end
         end
  
         function  irfMat =  matrixForm(obj)
-            nElements = size(obj,2);
+            irfArray =  arrayForm(obj);
+            shapeOfArray = size(irfArray);
+            nLines = size(irfArray,3);
+            irfMat = reshape(irfArray,shapeOfArray(1)*nLines,shapeOfArray(2));
+        end
+        
+        function  irfArray =  arrayForm(obj)
+            [nLines, nTS] = size(obj);
             maxHorizon = size(obj(1).Values,2);
-            irfMat = zeros(nElements,maxHorizon);
-            for i = 1 : nElements
-                irfMat(i,:) = obj(i).Values;
+            irfArray = zeros(nTS,maxHorizon,nLines);
+            for j = 1 :nLines
+                for i = 1 : nTS
+                    irfArray(i,:,j) = obj(i).Values;
+                end
             end
         end
+        
         function  d = double(obj)
             d = obj.matrixForm;
         end
-        
+        function  disp(obj)
+            [nLines, ~] = size(obj);
+             for j = nLines:-1:1
+                Description(j) = {obj(j,1).description.legend};
+            end
+             t =  table;
+             t.Description = Description';
+             disp(t);
+        end
+         
+        function IRFColl =  join(obj,varargin)
+            nVarargs = length(varargin);
+            switch nVarargs
+                case 0
+                    IRFColl = obj;
+                case 1
+                    IRFColl =  [ obj ;  varargin{nVarargs}];
+                otherwise
+                    IRFColl = [ join(obj,varargin{1:(nVarargs-1)}) ;  varargin{nVarargs}];
+            end
+        end
+                
         function figureArray = plotPanel(obj,printFilePathAndPrefix)
             [nLines, nPlots] = size(obj);
             for j = 1:nPlots

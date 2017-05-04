@@ -1,5 +1,6 @@
 
 UMPbaselineConfiguration = SVARconfiguration;
+UMPbaselineConfiguration.nGridPoints = 100000;
 UMPbaselineConfiguration.isCumulativeIRF ='yes';
 UMPbaselineConfiguration.SVARlabel = 'UMPbaseline';
 
@@ -30,14 +31,7 @@ IRFidSet = estimatedIdentifiedSet(umpSVAR);
 
 IRFCS = IRFtwoSidedCS(umpSVAR,level,'Analytic');
 
-folderName = ['figures' filesep 'analytic' filesep ];
-mkdir( folderName);
-prefix = '';
-pathAndPrefix_=[folderName prefix]; 
-
-panel1 = join(IRFidSet,IRFCS)
-plotPanel( panel1,pathAndPrefix_);
-
+ 
 tic
 IRFbonCS = IRFtwoSidedCS(umpSVAR, level,'MI_Bonferroni');
 toc
@@ -45,13 +39,13 @@ toc
 %% 
 folderName = ['figures' filesep 'bonferroni' filesep ];
 mkdir( folderName);
-
-resultsFileName = [folderName 'autosave'];
+prefix = ['10e' num2str( log10(UMPbaselineConfiguration.nGridPoints)) '_'];
+resultsFileName = [folderName prefix 'autosave'];
 save(resultsFileName,'IRFbonCS')
 %%
-prefix = '10e5_';
+
 pathAndPrefix_=[folderName prefix]; 
-IRFbonCS.setDescriptionField('type','--');
+IRFbonCS = IRFbonCS.setDescriptionField('type','+');
 panel2 = join(IRFbonCS,IRFCS);
 
 plotPanel( panel2,pathAndPrefix_);

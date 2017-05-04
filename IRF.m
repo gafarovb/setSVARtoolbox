@@ -10,7 +10,7 @@ classdef IRF
                 'legend','Unknown IRF',...
                 'shock', 'Unknown shock',...
                 'SVARmodel', 'Unkown model',...
-                'type' , 'pointEstimates');
+                'type' , 'Unknown');
     end
  
     
@@ -22,9 +22,13 @@ classdef IRF
             %   description       
             
           if nargin~=0  
-            obj.TSdescription = TSdescription;
-            obj.description   = description;
-            obj.Values   = vectorIRF;
+              if ~isempty(TSdescription)
+                  obj.TSdescription = TSdescription;
+              end
+              if ~isempty(description)
+                  obj.description   = description;
+              end
+              obj.Values   = vectorIRF;
           end
         end
         function d = double(obj)
@@ -89,7 +93,7 @@ classdef IRF
                 case 'std'
                     marker = '--';
                 otherwise
-                    marker = 'x';
+                    marker = obj.description.type;
             end
                 
             

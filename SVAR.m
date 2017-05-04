@@ -39,6 +39,8 @@ classdef SVAR < handle
             obj.label = config.SVARlabel;
             obj.ID = ID;
             
+            assert(ID.getMaxTS<=obj.VecARmodel.getN,'The largest index of time teries in the assumption specification exceeds actual number of time series')
+           
             loadMIframework(obj);
             loadAnalyticFramwork(obj);
         end
@@ -59,6 +61,7 @@ classdef SVAR < handle
             end
             
         end
+       
         function loadMIframework(obj)
             obj.MIframework = SVARMomentInequalitiesFramework(obj);
         end
@@ -93,7 +96,17 @@ classdef SVAR < handle
         function tsDescr = getTSDescription(obj)
            tsDescr =  [obj.getNamesOfTS;obj.getUnitsOfMeasurement];
         end
-        
+        function t = tableForm(obj)
+            t = obj.ID.tableForm;
+            
+            names = obj.getNamesOfTS;
+            t.TimeSeries =  names( t.TimeSeries)';
+        end
+        function disp(obj)
+            disp(['SVAR model  ' obj.label ' with restrictions:' ]);
+            disp(tableForm(obj));
+            
+        end
         function shockLabel = getShockLabel(obj)
             shockLabel = obj.ID.shockLabel;
         end

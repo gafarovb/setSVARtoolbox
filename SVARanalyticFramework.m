@@ -27,7 +27,7 @@ classdef SVARanalyticFramework < handle
             setOptimizationProblems(obj);
             maxBoundsMatrix = obj.optProblems.getMaxBounds;
             descr = descriptionPointEstimates(obj);
-            descr.legend = ['Max' descr.legend ];
+            descr.legend = ['Maximum ' descr.legend ];
             maxIRFcollection = IRFcollection(maxBoundsMatrix, obj.SVARfacade.getTSDescription, descr) ;
             maxIRFcollection = obj.SVARfacade.enforceIRFRestrictions(maxIRFcollection) ;
         end
@@ -35,7 +35,7 @@ classdef SVARanalyticFramework < handle
             setOptimizationProblems(obj);
             minBoundsMatrix = obj.optProblems.getMinBounds;
             descr = descriptionPointEstimates(obj);
-            descr.legend = ['Min' descr.legend ];
+            descr.legend = ['Minimum ' descr.legend ];
             minIRFcollection = IRFcollection(minBoundsMatrix, obj.SVARfacade.getTSDescription, descr) ;
             minIRFcollection = obj.SVARfacade.enforceIRFRestrictions(minIRFcollection) ;
         end
