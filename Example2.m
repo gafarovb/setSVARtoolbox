@@ -1,5 +1,5 @@
 %This version: May 3th, 2017 (Version 2). 
-% Author : Bulat Gafarov
+% Author : Bulat Gafarov, Pepe Montiel
 UMPbaselineConfiguration = SVARconfiguration;
 UMPbaselineConfiguration.isCumulativeIRF ='yes';
 UMPbaselineConfiguration.SVARlabel = 'UMPbaseline';
